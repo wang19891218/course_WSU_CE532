@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CST Beam Analysis - CE/ME 532</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa; color: #333;
+  padding: 20px; max-width: 1440px; margin: 0 auto;
+}
+h1 { text-align: center; margin-bottom: 6px; font-size: 1.5rem; }
+.subtitle { text-align: center; color: #666; margin-bottom: 18px; font-size: 0.9rem; }
+
+.layout { display: flex; gap: 20px; flex-wrap: wrap; }
+.panel {
+  background: #fff; border-radius: 8px; padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.left-panel { flex: 0 0 290px; }
+.right-panel { flex: 1; min-width: 520px; }
+
+label { font-weight: 600; font-size: 0.85rem; display: block; margin-top: 10px; }
+label:first-child { margin-top: 0; }
+.input-row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.input-row span { font-size: 0.82rem; min-width: 18px; color: #555; }
+input[type="number"] {
+  width: 68px; padding: 4px 6px; border: 1px solid #ccc;
+  border-radius: 4px; font-size: 0.85rem;
+}
+
+button {
+  padding: 7px 13px; border: none; border-radius: 5px;
+  cursor: pointer; font-size: 0.82rem; font-weight: 600;
+}
+.btn-primary { background: #3b82f6; color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-secondary { background: #e5e7eb; color: #333; }
+.btn-secondary:hover { background: #d1d5db; }
+.btn-active { background: #2563eb; color: #fff; }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+#main-canvas {
+  width: 100%; border: 1px solid #ddd;
+  border-radius: 6px; background: #fafbfc;
+}
+
+.view-buttons { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.view-buttons button { padding: 6px 10px; font-size: 0.78rem; }
+
+.results-summary { margin-top: 14px; font-size: 0.82rem; }
+.results-summary table { border-collapse: collapse; width: 100%; margin-top: 4px; }
+.results-summary td {
+  padding: 3px 8px; border-bottom: 1px solid #eee;
+  font-family: 'Courier New', monospace; font-size: 0.8rem;
+}
+.results-summary td:first-child {
+  font-weight: 600; color: #555; font-family: 'Segoe UI', sans-serif;
+}
+
+.toggle-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.toggle-row button { margin-top: 0; }
+
+.scale-slider {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px; font-size: 0.82rem;
+}
+.scale-slider input[type="range"] { flex: 1; }
+
+.solution-table {
+  margin-top: 10px; max-height: 200px;
+  overflow-y: auto; font-size: 0.78rem;
+}
+.solution-table table { border-collapse: collapse; width: 100%; }
+.solution-table th {
+  background: #eef; padding: 4px 6px; text-align: center;
+  position: sticky; top: 0; font-size: 0.75rem;
+}
+.solution-table td {
+  padding: 3px 6px; text-align: center;
+  border-bottom: 1px solid #eee;
+  font-family: 'Courier New', monospace; font-size: 0.72rem;
+}
+
+.matrix-container {
+  margin-top: 8px; overflow: auto; max-height: 420px;
+}
+.matrix-grid {
+  display: inline-grid; gap: 1px; background: #ccc;
+  border: 2px solid #333; border-radius: 4px; overflow: hidden;
+}
+.matrix-cell {
+  min-width: 22px; height: 20px; padding: 0 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.52rem; font-family: 'Courier New', monospace;
+  background: #fff; white-space: nowrap;
+}
+.matrix-cell.hdr {
+  background: #e8edf3; font-weight: 700; font-size: 0.55rem;
+}
+.matrix-cell.corner { background: #d0d5dd; }
+
+#matrix-heatmap {
+  border: 1px solid #ccc; border-radius: 4px;
+  image-rendering: pixelated;
+}
+</style>
+</head>
+<body>
+
+<h1>Constant Strain Triangle &mdash; Beam Analysis</h1>
+<p class="subtitle">CE/ME 532 &mdash; Interactive CST Finite Element Analysis</p>
+
+<div class="layout">
+  <!-- Left panel -->
+  <div class="panel left-panel">
+    <label>Preset</label>
+    <div class="btn-group">
+      <button class="btn-secondary" onclick="loadPreset('cantilever')">Cantilever</button>
+      <button class="btn-secondary" onclick="loadPreset('simply_supported')">Simply Supported</button>
+    </div>
+
+    <label>Geometry</label>
+    <div class="input-row">
+      <span>L</span><input type="number" id="inp-L" value="10" step="any" min="0.1">
+      <span>H</span><input type="number" id="inp-H" value="2" step="any" min="0.1">
+    </div>
+
+    <label>Material</label>
+    <div class="input-row">
+      <span>E</span><input type="number" id="inp-E" value="1000" step="any" min="0.01">
+      <span>&nu;</span><input type="number" id="inp-nu" value="0.3" step="0.01" min="0" max="0.499">
+    </div>
+    <div class="input-row">
+      <span>t</span><input type="number" id="inp-t" value="1" step="any" min="0.001">
+    </div>
+
+    <label>Mesh Divisions</label>
+    <div class="input-row">
+      <span>n<sub>x</sub></span><input type="number" id="inp-nx" value="8" min="1" max="50">
+      <span>n<sub>y</sub></span><input type="number" id="inp-ny" value="4" min="1" max="25">
+    </div>
+
+    <label>Load (downward P)</label>
+    <div class="input-row">
+      <span>P</span><input type="number" id="inp-P" value="100" step="any">
+    </div>
+
+    <button class="btn-primary" style="width:100%; margin-top:14px" onclick="runAnalysis()">
+      &#9654; Analyze
+    </button>
+
+    <div class="results-summary" id="results-summary"></div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="panel right-panel">
+    <div class="view-buttons" id="view-buttons">
+      <button class="btn-active" onclick="setView('mesh')">Mesh</button>
+      <button class="btn-secondary" onclick="setView('deformed')">Deformed</button>
+      <button class="btn-secondary" onclick="setView('disp_mag')">|d|</button>
+      <button class="btn-secondary" onclick="setView('eps_x')">&epsilon;<sub>x</sub></button>
+      <button class="btn-secondary" onclick="setView('eps_y')">&epsilon;<sub>y</sub></button>
+      <button class="btn-secondary" onclick="setView('gamma_xy')">&gamma;<sub>xy</sub></button>
+      <button class="btn-secondary" onclick="setView('sigma_vm')">&sigma;<sub>vm</sub></button>
+    </div>
+
+    <canvas id="main-canvas"></canvas>
+
+    <div class="scale-slider" id="scale-slider" style="display:none">
+      <span>Deformation scale:</span>
+      <input type="range" id="disp-scale" min="0.1" max="5" step="0.1" value="1"
+             oninput="document.getElementById('scale-val').textContent=
+             (+this.value).toFixed(1)+'&times;'; redraw();">
+      <span id="scale-val">1.0&times;</span>
+    </div>
+
+    <div class="toggle-row">
+      <button class="btn-secondary" onclick="togglePanel('solution-box')">
+        Nodal Displacements</button>
+      <button class="btn-secondary" onclick="togglePanel('matrix-box')">
+        Stiffness Matrix</button>
+    </div>
+
+    <div class="solution-table" id="solution-box" style="display:none"></div>
+    <div class="matrix-container" id="matrix-box" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const S = {
+  nodes: [], elems: [], fixedDofs: [], Fglobal: null,
+  K: null, disp: null, elemData: null, elemRes: null,
+  viewMode: 'mesh', preset: 'cantilever', autoScale: 1,
+};
+const VIEW_MODES = ['mesh','deformed','disp_mag',
+                    'eps_x','eps_y','gamma_xy','sigma_vm'];
+
+// ============================================================
+//  MATH HELPERS
+// ============================================================
+function matMul(A, B) {
+  const m = A.length, p = A[0].length, n = B[0].length;
+  const C = Array.from({length: m}, () => new Array(n).fill(0));
+  for (let i = 0; i < m; i++)
+    for (let j = 0; j < n; j++)
+      for (let k = 0; k < p; k++)
+        C[i][j] += A[i][k] * B[k][j];
+  return C;
+}
+function matT(A) {
+  const m = A.length, n = A[0].length;
+  return Array.from({length: n}, (_, j) =>
+    Array.from({length: m}, (_, i) => A[i][j]));
+}
+function gaussElim(K, F) {
+  const n = K.length;
+  const A = K.map((r, i) => [...r, F[i]]);
+  for (let c = 0; c < n; c++) {
+    let mx = Math.abs(A[c][c]), mr = c;
+    for (let r = c + 1; r < n; r++)
+      if (Math.abs(A[r][c]) > mx) { mx = Math.abs(A[r][c]); mr = r; }
+    [A[c], A[mr]] = [A[mr], A[c]];
+    if (Math.abs(A[c][c]) < 1e-14) continue;
+    for (let r = c + 1; r < n; r++) {
+      const f = A[r][c] / A[c][c];
+      for (let j = c; j <= n; j++) A[r][j] -= f * A[c][j];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    if (Math.abs(A[i][i]) < 1e-14) continue;
+    x[i] = A[i][n];
+    for (let j = i + 1; j < n; j++) x[i] -= A[i][j] * x[j];
+    x[i] /= A[i][i];
+  }
+  return x;
+}
+
+// ============================================================
+//  MESH GENERATION
+// ============================================================
+function genMesh(L, H, nx, ny) {
+  const nodes = [];
+  for (let j = 0; j <= ny; j++)
+    for (let i = 0; i <= nx; i++)
+      nodes.push({ x: i * L / nx, y: j * H / ny });
+  const elems = [];
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      const bl = j * (nx + 1) + i;
+      const br = bl + 1, tl = bl + (nx + 1), tr = tl + 1;
+      elems.push([bl, br, tr]);   // lower-right triangle
+      elems.push([bl, tr, tl]);   // upper-left triangle
+    }
+  return { nodes, elems };
+}
+
+// ============================================================
+//  CST ELEMENT
+// ============================================================
+function planeStressE(E, nu) {
+  const c = E / (1 - nu * nu);
+  return [[c, c*nu, 0], [c*nu, c, 0], [0, 0, c*(1-nu)/2]];
+}
+
+function cstElem(n1, n2, n3, nds, Emat, t) {
+  const x1=nds[n1].x, y1=nds[n1].y;
+  const x2=nds[n2].x, y2=nds[n2].y;
+  const x3=nds[n3].x, y3=nds[n3].y;
+  const area = 0.5*((x2-x1)*(y3-y1)-(x3-x1)*(y2-y1));
+  const b1=y2-y3, b2=y3-y1, b3=y1-y2;
+  const c1=x3-x2, c2=x1-x3, c3=x2-x1;
+  const d = 1/(2*area);
+  const B = [
+    [b1*d, 0,    b2*d, 0,    b3*d, 0   ],
+    [0,    c1*d, 0,    c2*d, 0,    c3*d],
+    [c1*d, b1*d, c2*d, b2*d, c3*d, b3*d]
+  ];
+  const k = matMul(matT(B), matMul(Emat, B)).map(
+    row => row.map(v => v * t * area));
+  return { k, B, area };
+}
+
+// ============================================================
+//  ASSEMBLY & SOLVE
+// ============================================================
+function assembleAndSolve(nodes, elems, Emat, t, fixedDofs, F) {
+  const nd = nodes.length * 2;
+  const K = Array.from({length: nd}, () => new Array(nd).fill(0));
+  const ed = [];
+  for (const [n1,n2,n3] of elems) {
+    const {k, B, area} = cstElem(n1, n2, n3, nodes, Emat, t);
+    const dofs = [2*n1,2*n1+1, 2*n2,2*n2+1, 2*n3,2*n3+1];
+    for (let i=0;i<6;i++) for (let j=0;j<6;j++) K[dofs[i]][dofs[j]] += k[i][j];
+    ed.push({B, area, dofs});
+  }
+  // Reduce system
+  const isF = new Set(fixedDofs);
+  const free = []; for (let i=0;i<nd;i++) if (!isF.has(i)) free.push(i);
+  const Kf = free.map(i => free.map(j => K[i][j]));
+  const Ff = free.map(i => F[i]);
+  const df = gaussElim(Kf, Ff);
+  const disp = new Array(nd).fill(0);
+  for (let i=0;i<free.length;i++) disp[free[i]] = df[i];
+  return { K, ed, disp };
+}
+
+// ============================================================
+//  POST-PROCESSING
+// ============================================================
+function postProcess(elems, nodes, disp, ed, Emat) {
+  return elems.map((_, e) => {
+    const {B, dofs} = ed[e];
+    const de = dofs.map(i => disp[i]);
+    const eps = [0,0,0], sig = [0,0,0];
+    for (let i=0;i<3;i++) for (let j=0;j<6;j++) eps[i] += B[i][j]*de[j];
+    for (let i=0;i<3;i++) for (let j=0;j<3;j++) sig[i] += Emat[i][j]*eps[j];
+    const vm = Math.sqrt(sig[0]*sig[0]-sig[0]*sig[1]+sig[1]*sig[1]+3*sig[2]*sig[2]);
+    return { eps_x:eps[0], eps_y:eps[1], gamma_xy:eps[2],
+             sig_x:sig[0], sig_y:sig[1], tau_xy:sig[2], vonMises:vm };
+  });
+}
+
+// ============================================================
+//  COLORMAP  (blue -> cyan -> green -> yellow -> red)
+// ============================================================
+function cmap(t) {
+  t = Math.max(0, Math.min(1, t));
+  let r,g,b;
+  if (t<0.25)      { const s=t/0.25;       r=0;   g=~~(255*s); b=255; }
+  else if (t<0.5)  { const s=(t-0.25)/0.25; r=0;   g=255; b=~~(255*(1-s)); }
+  else if (t<0.75) { const s=(t-0.5)/0.25;  r=~~(255*s); g=255; b=0; }
+  else             { const s=(t-0.75)/0.25; r=255; g=~~(255*(1-s)); b=0; }
+  return `rgb(${r},${g},${b})`;
+}
+
+// ============================================================
+//  PRESETS
+// ============================================================
+function loadPreset(name) {
+  S.preset = name;
+  const v = (id, val) => document.getElementById(id).value = val;
+  if (name === 'cantilever') {
+    v('inp-L',10); v('inp-H',2); v('inp-E',1000);
+    v('inp-nu',0.3); v('inp-t',1); v('inp-nx',8);
+    v('inp-ny',4); v('inp-P',100);
+  } else {
+    v('inp-L',10); v('inp-H',2); v('inp-E',1000);
+    v('inp-nu',0.3); v('inp-t',1); v('inp-nx',10);
+    v('inp-ny',4); v('inp-P',100);
+  }
+}
+
+// ============================================================
+//  MAIN ANALYSIS
+// ============================================================
+function runAnalysis() {
+  const g = id => +document.getElementById(id).value;
+  const L=g('inp-L'), H=g('inp-H'), E=g('inp-E'), nu=g('inp-nu');
+  const t=g('inp-t'), nx=g('inp-nx'), ny=g('inp-ny'), P=g('inp-P');
+
+  const {nodes, elems} = genMesh(L, H, nx, ny);
+  S.nodes = nodes; S.elems = elems;
+
+  const Emat = planeStressE(E, nu);
+  const nd = nodes.length * 2;
+  const F = new Array(nd).fill(0);
+  const fixed = [];
+
+  if (S.preset === 'cantilever') {
+    for (let j=0; j<=ny; j++) { const n=j*(nx+1); fixed.push(2*n,2*n+1); }
+    const loadN = Math.round(ny/2)*(nx+1)+nx;
+    F[2*loadN+1] = -P;
+  } else {
+    fixed.push(0, 1);                // pin at bottom-left
+    fixed.push(2*nx+1);              // roller at bottom-right
+    const loadN = ny*(nx+1)+Math.round(nx/2);
+    F[2*loadN+1] = -P;
+  }
+  S.fixedDofs = fixed; S.Fglobal = F;
+
+  const {K, ed, disp} = assembleAndSolve(nodes, elems, Emat, t, fixed, F);
+  S.K = K; S.elemData = ed; S.disp = disp;
+  S.elemRes = postProcess(elems, nodes, disp, ed, Emat);
+
+  const maxD = Math.max(...disp.map(Math.abs));
+  S.autoScale = maxD > 0 ? 0.12 * Math.max(L, H) / maxD : 1;
+  document.getElementById('disp-scale').value = 1;
+  document.getElementById('scale-val').innerHTML = '1.0&times;';
+
+  showSummary();
+  redraw();
+  // Refresh panels if visible
+  if (document.getElementById('solution-box').style.display !== 'none')
+    renderSolTable();
+  if (document.getElementById('matrix-box').style.display !== 'none')
+    renderMatrix();
+}
+
+// ============================================================
+//  DRAWING
+// ============================================================
+function redraw() {
+  const canvas = document.getElementById('main-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 32;
+  const CH = 440;
+  canvas.width = W; canvas.height = CH;
+  ctx.clearRect(0, 0, W, CH);
+  if (!S.nodes.length) return;
+
+  const {nodes, elems} = S;
+  let xmn=Infinity,xmx=-Infinity,ymn=Infinity,ymx=-Infinity;
+  for (const n of nodes) {
+    xmn=Math.min(xmn,n.x); xmx=Math.max(xmx,n.x);
+    ymn=Math.min(ymn,n.y); ymx=Math.max(ymx,n.y);
+  }
+  const plotH = CH - 55, pad = 45;
+  const dx=xmx-xmn||1, dy=ymx-ymn||1;
+  const sc = Math.min((W-2*pad)/dx, (plotH-2*pad)/dy);
+  const ox = pad + ((W-2*pad)-dx*sc)/2;
+  const oy = plotH - pad;
+  const tx = x => ox + (x-xmn)*sc;
+  const ty = y => oy - (y-ymn)*sc;
+
+  const vm = S.viewMode;
+  const d = S.disp;
+  const dsc = S.autoScale * (+document.getElementById('disp-scale').value);
+
+  document.getElementById('scale-slider').style.display =
+    (vm==='deformed' && d) ? 'flex' : 'none';
+
+  const txd = i => tx(nodes[i].x + (d ? d[2*i]*dsc : 0));
+  const tyd = i => ty(nodes[i].y + (d ? d[2*i+1]*dsc : 0));
+
+  if (vm === 'mesh') {
+    drawFilled(ctx, elems, nodes, tx, ty, '#e8f0fe', '#666', 0.8);
+    drawNodes(ctx, nodes, tx, ty);
+    drawBCs(ctx, nodes, tx, ty);
+    drawLoad(ctx, nodes, tx, ty);
+    infoText(ctx, `${nodes.length} nodes | ${elems.length} elements | ${nodes.length*2} DOFs`, W, CH);
+  } else if (vm === 'deformed') {
+    drawFilled(ctx, elems, nodes, tx, ty, 'transparent', '#ddd', 0.5);
+    drawFilledDef(ctx, elems, nodes, txd, tyd,
+                  'rgba(59,130,246,0.12)', '#3b82f6', 1);
+    infoText(ctx, `Deformation scale: ${dsc.toFixed(1)}\u00d7`, W, CH);
+  } else {
+    const res = S.elemRes; if (!res) return;
+    let vals, label;
+    if (vm==='disp_mag') {
+      vals = elems.map(([a,b,c]) => {
+        return (Math.hypot(d[2*a],d[2*a+1])
+              + Math.hypot(d[2*b],d[2*b+1])
+              + Math.hypot(d[2*c],d[2*c+1]))/3;
+      }); label = '|d|';
+    } else {
+      const key = {eps_x:'eps_x',eps_y:'eps_y',gamma_xy:'gamma_xy',
+                   sigma_vm:'vonMises'}[vm];
+      vals = res.map(r => r[key]);
+      label = {eps_x:'\u03B5x',eps_y:'\u03B5y',
+               gamma_xy:'\u03B3xy',sigma_vm:'\u03C3vm'}[vm];
+    }
+    const vmn=Math.min(...vals), vmx=Math.max(...vals);
+    const rng = vmx-vmn || 1;
+    for (let e=0; e<elems.length; e++) {
+      const [a,b,c] = elems[e];
+      ctx.beginPath();
+      ctx.moveTo(tx(nodes[a].x),ty(nodes[a].y));
+      ctx.lineTo(tx(nodes[b].x),ty(nodes[b].y));
+      ctx.lineTo(tx(nodes[c].x),ty(nodes[c].y));
+      ctx.closePath();
+      ctx.fillStyle = cmap((vals[e]-vmn)/rng);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+      ctx.lineWidth = 0.3;
+      ctx.stroke();
+    }
+    // Color bar
+    const bx=pad, by=plotH+15, bw=W-2*pad, bh=16;
+    for (let i=0;i<bw;i++) { ctx.fillStyle=cmap(i/bw); ctx.fillRect(bx+i,by,1,bh); }
+    ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle='#333'; ctx.font='11px monospace';
+    ctx.textAlign='left';  ctx.fillText(vmn.toExponential(2), bx, by+bh+13);
+    ctx.textAlign='right'; ctx.fillText(vmx.toExponential(2), bx+bw, by+bh+13);
+    ctx.textAlign='center'; ctx.fillText(label, bx+bw/2, by-4);
+  }
+}
+
+function drawFilled(ctx, el, nd, tx, ty, fill, stroke, lw) {
+  for (const [a,b,c] of el) {
+    ctx.beginPath();
+    ctx.moveTo(tx(nd[a].x),ty(nd[a].y));
+    ctx.lineTo(tx(nd[b].x),ty(nd[b].y));
+    ctx.lineTo(tx(nd[c].x),ty(nd[c].y));
+    ctx.closePath();
+    if (fill!=='transparent') { ctx.fillStyle=fill; ctx.fill(); }
+    ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.stroke();
+  }
+}
+function drawFilledDef(ctx, el, nd, txd, tyd, fill, stroke, lw) {
+  for (let i=0; i<el.length; i++) {
+    const [a,b,c] = el[i];
+    ctx.beginPath();
+    ctx.moveTo(txd(a),tyd(a));
+    ctx.lineTo(txd(b),tyd(b));
+    ctx.lineTo(txd(c),tyd(c));
+    ctx.closePath();
+    ctx.fillStyle=fill; ctx.fill();
+    ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.stroke();
+  }
+}
+function drawNodes(ctx, nd, tx, ty) {
+  for (const n of nd) {
+    ctx.beginPath(); ctx.arc(tx(n.x),ty(n.y),2.5,0,2*Math.PI);
+    ctx.fillStyle='#333'; ctx.fill();
+  }
+}
+function drawBCs(ctx, nd, tx, ty) {
+  const fs = new Set(S.fixedDofs);
+  for (let i=0; i<nd.length; i++) {
+    const hu=fs.has(2*i), hv=fs.has(2*i+1);
+    if (!hu && !hv) continue;
+    const x=tx(nd[i].x), y=ty(nd[i].y);
+    if (hu && hv) {
+      // Pin / fixed triangle
+      ctx.beginPath();
+      ctx.moveTo(x-6,y+10); ctx.lineTo(x+6,y+10); ctx.lineTo(x,y);
+      ctx.closePath();
+      ctx.fillStyle='rgba(220,50,50,0.25)'; ctx.fill();
+      ctx.strokeStyle='#c33'; ctx.lineWidth=1; ctx.stroke();
+      // Hatching
+      for (let h=-6;h<=6;h+=3) {
+        ctx.beginPath(); ctx.moveTo(x+h,y+11); ctx.lineTo(x+h-3,y+15);
+        ctx.strokeStyle='#c33'; ctx.lineWidth=0.6; ctx.stroke();
+      }
+    } else if (hv) {
+      // Roller
+      ctx.beginPath(); ctx.arc(x,y+8,4,0,2*Math.PI);
+      ctx.fillStyle='rgba(50,50,220,0.25)'; ctx.fill();
+      ctx.strokeStyle='#33c'; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x-7,y+13); ctx.lineTo(x+7,y+13);
+      ctx.strokeStyle='#33c'; ctx.lineWidth=1; ctx.stroke();
+    }
+  }
+}
+function drawLoad(ctx, nd, tx, ty) {
+  if (!S.Fglobal) return;
+  for (let i=0; i<S.Fglobal.length; i++) {
+    if (Math.abs(S.Fglobal[i]) < 1e-14) continue;
+    const ni = Math.floor(i/2), isY = i%2===1;
+    const x=tx(nd[ni].x), y=ty(nd[ni].y);
+    const down = S.Fglobal[i] < 0 && isY;
+    if (down) {
+      ctx.beginPath(); ctx.moveTo(x,y-30); ctx.lineTo(x,y-5);
+      ctx.strokeStyle='#e44'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x,y-2); ctx.lineTo(x-5,y-10); ctx.lineTo(x+5,y-10);
+      ctx.closePath(); ctx.fillStyle='#e44'; ctx.fill();
+      ctx.fillStyle='#c33'; ctx.font='bold 11px sans-serif';
+      ctx.textAlign='center'; ctx.fillText('P',x,y-34);
+    }
+  }
+}
+function infoText(ctx, txt, W, H) {
+  ctx.fillStyle='#888'; ctx.font='11px sans-serif';
+  ctx.textAlign='left'; ctx.fillText(txt, 8, H-6);
+}
+
+// ============================================================
+//  VIEW & UI
+// ============================================================
+function setView(m) {
+  S.viewMode = m;
+  const btns = document.querySelectorAll('#view-buttons button');
+  btns.forEach((b,i) => b.className = VIEW_MODES[i]===m ? 'btn-active' : 'btn-secondary');
+  redraw();
+}
+
+function showSummary() {
+  const div = document.getElementById('results-summary');
+  if (!S.disp) { div.innerHTML=''; return; }
+  const d=S.disp, n=S.nodes.length;
+  let mxD=0, mxN=0;
+  for (let i=0;i<n;i++) {
+    const mag=Math.hypot(d[2*i],d[2*i+1]);
+    if (mag>mxD) { mxD=mag; mxN=i; }
+  }
+  const mxVM = Math.max(...S.elemRes.map(r=>r.vonMises));
+  const mxVE = S.elemRes.findIndex(r=>r.vonMises===mxVM);
+  div.innerHTML = `<label style="margin-top:14px">Results</label><table>
+    <tr><td>Nodes</td><td>${n}</td></tr>
+    <tr><td>Elements</td><td>${S.elems.length}</td></tr>
+    <tr><td>DOFs</td><td>${n*2}</td></tr>
+    <tr><td>Max |d|</td><td>${mxD.toExponential(4)}<br><small>node ${mxN+1}</small></td></tr>
+    <tr><td>Max &sigma;<sub>vm</sub></td><td>${mxVM.toExponential(4)}<br><small>elem ${mxVE+1}</small></td></tr>
+    </table>`;
+}
+
+function togglePanel(id) {
+  const el = document.getElementById(id);
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    if (id === 'solution-box') renderSolTable();
+    if (id === 'matrix-box') renderMatrix();
+  } else el.style.display = 'none';
+}
+
+// ============================================================
+//  SOLUTION TABLE
+// ============================================================
+function renderSolTable() {
+  const div = document.getElementById('solution-box');
+  if (!S.disp) { div.innerHTML='Run analysis first.'; return; }
+  const d=S.disp, n=S.nodes.length;
+  let h='<table><thead><tr><th>Node</th><th>u</th><th>v</th><th>|d|</th></tr></thead><tbody>';
+  for (let i=0;i<n;i++) {
+    const u=d[2*i], v=d[2*i+1];
+    h += `<tr><td>${i+1}</td><td>${u.toExponential(3)}</td>
+      <td>${v.toExponential(3)}</td><td>${Math.hypot(u,v).toExponential(3)}</td></tr>`;
+  }
+  div.innerHTML = h+'</tbody></table>';
+}
+
+// ============================================================
+//  STIFFNESS MATRIX DISPLAY
+// ============================================================
+function renderMatrix() {
+  const box = document.getElementById('matrix-box');
+  if (!S.K) { box.innerHTML='Run analysis first.'; return; }
+  const K=S.K, n=K.length;
+
+  if (n <= 24) {
+    // Numeric grid
+    let g = `<div class="matrix-grid" style="grid-template-columns:repeat(${n+1},auto)">`;
+    g += '<div class="matrix-cell corner"></div>';
+    for (let c=0;c<n;c++) {
+      const nn=Math.floor(c/2)+1, dof=c%2===0?'u':'v';
+      g += `<div class="matrix-cell hdr">${dof}<sub>${nn}</sub></div>`;
+    }
+    for (let r=0;r<n;r++) {
+      const nn=Math.floor(r/2)+1, dof=r%2===0?'u':'v';
+      g += `<div class="matrix-cell hdr">${dof}<sub>${nn}</sub></div>`;
+      for (let c=0;c<n;c++) {
+        const v=K[r][c];
+        const txt = Math.abs(v)<1e-10 ? '0' : v.toFixed(1);
+        g += `<div class="matrix-cell" title="K[${r+1},${c+1}]=${v.toExponential(4)}">${txt}</div>`;
+      }
+    }
+    g += '</div>';
+    box.innerHTML = g;
+  } else {
+    // Heat map canvas
+    const cellSz = Math.max(2, Math.min(8, Math.floor(580/n)));
+    const sz = n*cellSz;
+    box.innerHTML = `<canvas id="matrix-heatmap" width="${sz}" height="${sz}"
+      style="width:${Math.min(sz,580)}px; height:${Math.min(sz,580)}px"></canvas>
+      <div style="font-size:0.75rem;color:#888;margin-top:4px">
+      ${n}&times;${n} stiffness matrix (hover for values)</div>`;
+    const cv = document.getElementById('matrix-heatmap');
+    const ctx = cv.getContext('2d');
+    let mx=0;
+    for (let i=0;i<n;i++) for (let j=0;j<n;j++) mx=Math.max(mx,Math.abs(K[i][j]));
+    if (mx===0) mx=1;
+    for (let i=0;i<n;i++) for (let j=0;j<n;j++) {
+      ctx.fillStyle = cmap(Math.abs(K[i][j])/mx);
+      ctx.fillRect(j*cellSz, i*cellSz, cellSz, cellSz);
+    }
+    cv.addEventListener('mousemove', function(e) {
+      const rect=cv.getBoundingClientRect();
+      const sx=cv.width/rect.width, sy=cv.height/rect.height;
+      const ci=Math.floor((e.clientY-rect.top)*sy/cellSz);
+      const cj=Math.floor((e.clientX-rect.left)*sx/cellSz);
+      if (ci>=0&&ci<n&&cj>=0&&cj<n)
+        cv.title = `K[${ci+1},${cj+1}] = ${K[ci][cj].toExponential(4)}`;
+    });
+  }
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+loadPreset('cantilever');
+runAnalysis();
+</script>
+</body>
+</html>
