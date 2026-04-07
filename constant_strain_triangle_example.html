@@ -142,6 +142,13 @@ button {
       <span>n<sub>x</sub></span><input type="number" id="inp-nx" value="8" min="1" max="50">
       <span>n<sub>y</sub></span><input type="number" id="inp-ny" value="4" min="1" max="25">
     </div>
+    <label>Mesh Pattern</label>
+    <div class="btn-group">
+      <button class="btn-secondary btn-active" id="pat-2" onclick="setPattern('2tri')">2-tri</button>
+      <button class="btn-secondary" id="pat-4" onclick="setPattern('4tri')">4-tri (crossed)</button>
+    </div>
+    <div style="margin-top:4px;font-size:0.72rem;color:#888" id="pat-desc">
+      Each quad &rarr; 2 triangles (single diagonal)</div>
 
     <label>Load (downward P)</label>
     <div class="input-row">
@@ -197,6 +204,7 @@ const S = {
   nodes: [], elems: [], fixedDofs: [], Fglobal: null,
   K: null, disp: null, elemData: null, elemRes: null,
   viewMode: 'mesh', preset: 'cantilever', autoScale: 1,
+  meshPattern: '2tri',
 };
 const VIEW_MODES = ['mesh','deformed','disp_mag',
                     'eps_x','eps_y','gamma_xy','sigma_vm'];
@@ -245,19 +253,42 @@ function gaussElim(K, F) {
 // ============================================================
 //  MESH GENERATION
 // ============================================================
-function genMesh(L, H, nx, ny) {
+function genMesh(L, H, nx, ny, pattern) {
   const nodes = [];
+  // Corner nodes: (nx+1)*(ny+1), indexed row-by-row bottom to top
   for (let j = 0; j <= ny; j++)
     for (let i = 0; i <= nx; i++)
       nodes.push({ x: i * L / nx, y: j * H / ny });
+
   const elems = [];
-  for (let j = 0; j < ny; j++)
-    for (let i = 0; i < nx; i++) {
-      const bl = j * (nx + 1) + i;
-      const br = bl + 1, tl = bl + (nx + 1), tr = tl + 1;
-      elems.push([bl, br, tr]);   // lower-right triangle
-      elems.push([bl, tr, tl]);   // upper-left triangle
-    }
+
+  if (pattern === '4tri') {
+    // Crossed-diagonal: add a center node per quad, 4 triangles each
+    // Center nodes start at index (nx+1)*(ny+1)
+    const cornerCount = (nx + 1) * (ny + 1);
+    for (let j = 0; j < ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const bl = j * (nx + 1) + i;
+        const br = bl + 1, tl = bl + (nx + 1), tr = tl + 1;
+        const cx = (i + 0.5) * L / nx;
+        const cy = (j + 0.5) * H / ny;
+        const ci = nodes.length;          // center node index
+        nodes.push({ x: cx, y: cy });
+        elems.push([bl, br, ci]);         // bottom
+        elems.push([br, tr, ci]);         // right
+        elems.push([tr, tl, ci]);         // top
+        elems.push([tl, bl, ci]);         // left
+      }
+  } else {
+    // Default 2-triangle: single diagonal per quad
+    for (let j = 0; j < ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const bl = j * (nx + 1) + i;
+        const br = bl + 1, tl = bl + (nx + 1), tr = tl + 1;
+        elems.push([bl, br, tr]);         // lower-right triangle
+        elems.push([bl, tr, tl]);         // upper-left triangle
+      }
+  }
   return { nodes, elems };
 }
 
@@ -365,7 +396,7 @@ function runAnalysis() {
   const L=g('inp-L'), H=g('inp-H'), E=g('inp-E'), nu=g('inp-nu');
   const t=g('inp-t'), nx=g('inp-nx'), ny=g('inp-ny'), P=g('inp-P');
 
-  const {nodes, elems} = genMesh(L, H, nx, ny);
+  const {nodes, elems} = genMesh(L, H, nx, ny, S.meshPattern);
   S.nodes = nodes; S.elems = elems;
 
   const Emat = planeStressE(E, nu);
@@ -580,6 +611,18 @@ function setView(m) {
   const btns = document.querySelectorAll('#view-buttons button');
   btns.forEach((b,i) => b.className = VIEW_MODES[i]===m ? 'btn-active' : 'btn-secondary');
   redraw();
+}
+
+function setPattern(p) {
+  S.meshPattern = p;
+  document.getElementById('pat-2').className =
+    'btn-secondary' + (p==='2tri' ? ' btn-active' : '');
+  document.getElementById('pat-4').className =
+    'btn-secondary' + (p==='4tri' ? ' btn-active' : '');
+  document.getElementById('pat-desc').innerHTML =
+    p==='2tri'
+      ? 'Each quad &rarr; 2 triangles (single diagonal)'
+      : 'Each quad &rarr; 4 triangles (crossed diagonals, less bias)';
 }
 
 function showSummary() {

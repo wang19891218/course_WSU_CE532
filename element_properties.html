@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Element Explorer - CE/ME 532</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa; color: #333;
+  padding: 20px; max-width: 1440px; margin: 0 auto;
+}
+h1 { text-align: center; margin-bottom: 6px; font-size: 1.5rem; }
+.subtitle { text-align: center; color: #666; margin-bottom: 14px; font-size: 0.9rem; }
+
+.elem-tabs { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
+.elem-tabs button {
+  padding: 8px 18px; border: none; border-radius: 6px;
+  cursor: pointer; font-size: 0.85rem; font-weight: 600;
+}
+.tab-active { background: #2563eb; color: #fff; }
+.tab-inactive { background: #e5e7eb; color: #333; }
+.tab-inactive:hover { background: #d1d5db; }
+.tab-disabled { background: #f0f0f0; color: #bbb; cursor: default !important; }
+
+.layout { display: flex; gap: 20px; flex-wrap: wrap; }
+.panel {
+  background: #fff; border-radius: 8px; padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.left-panel { flex: 0 0 280px; }
+.right-panel { flex: 1; min-width: 480px; }
+
+label { font-weight: 600; font-size: 0.85rem; display: block; margin-top: 12px; }
+label:first-child { margin-top: 0; }
+.input-row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.input-row span { font-size: 0.82rem; min-width: 18px; color: #555; }
+input[type="number"] {
+  width: 72px; padding: 4px 6px; border: 1px solid #ccc;
+  border-radius: 4px; font-size: 0.85rem;
+}
+button {
+  padding: 7px 13px; border: none; border-radius: 5px;
+  cursor: pointer; font-size: 0.82rem; font-weight: 600;
+}
+.btn-primary { background: #3b82f6; color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-secondary { background: #e5e7eb; color: #333; }
+.btn-secondary:hover { background: #d1d5db; }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+.readout { margin-top: 10px; }
+.readout h3 {
+  font-size: 0.82rem; color: #555; margin-bottom: 4px;
+  border-bottom: 1px solid #eee; padding-bottom: 3px;
+}
+.readout-grid {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 2px 10px; font-size: 0.82rem; margin-top: 4px;
+}
+.readout-grid .lbl { color: #888; font-weight: 600; font-size: 0.78rem; }
+.readout-grid .val {
+  font-family: 'Courier New', monospace; font-size: 0.82rem;
+  text-align: right;
+}
+
+#main-canvas {
+  width: 100%; border: 1px solid #ddd; border-radius: 6px;
+  background: #fafbfc; cursor: default;
+}
+.disp-readout {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;
+  font-size: 0.78rem; font-family: 'Courier New', monospace;
+}
+.disp-readout .node-disp {
+  background: #f8f9fb; border-radius: 4px; padding: 4px 10px;
+}
+.disp-readout .node-disp span { color: #888; }
+.instructions {
+  font-size: 0.78rem; color: #999; margin-top: 6px; font-style: italic;
+}
+
+.view-row { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.view-row button { padding: 5px 10px; font-size: 0.76rem; }
+.view-active { background: #2563eb; color: #fff; }
+</style>
+</head>
+<body>
+
+<h1>Interactive Element Explorer</h1>
+<p class="subtitle">CE/ME 532 &mdash; Drag nodes to see how displacement, strain, and stress change</p>
+
+<div class="elem-tabs">
+  <button class="tab-active" id="tab-cst" onclick="pickType('cst')">3-Node Triangle (CST)</button>
+  <button class="tab-disabled" title="Coming soon">4-Node Quad (Q4)</button>
+  <button class="tab-disabled" title="Coming soon">8-Node Quad (Q8)</button>
+  <button class="tab-disabled" title="Coming soon">9-Node Quad (Q9)</button>
+</div>
+
+<div class="layout">
+  <!-- Left panel -->
+  <div class="panel left-panel">
+    <label>Material (plane stress)</label>
+    <div class="input-row">
+      <span>E</span><input type="number" id="inp-E" value="1000" step="any"
+        onchange="recompute(); redraw();">
+    </div>
+    <div class="input-row">
+      <span>&nu;</span><input type="number" id="inp-nu" value="0.3" step="0.01"
+        min="0" max="0.499" onchange="recompute(); redraw();">
+    </div>
+
+    <div class="btn-group" style="margin-top:10px">
+      <button class="btn-secondary" onclick="resetNodes()">Reset</button>
+      <button class="btn-secondary" onclick="randomDisp()">Random</button>
+    </div>
+
+    <div class="readout">
+      <h3>Strain (constant in CST)</h3>
+      <div class="readout-grid" id="strain-out"></div>
+    </div>
+    <div class="readout">
+      <h3>Stress (plane stress)</h3>
+      <div class="readout-grid" id="stress-out"></div>
+    </div>
+    <div class="readout">
+      <h3>Element Info</h3>
+      <div class="readout-grid" id="info-out"></div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="panel right-panel">
+    <div class="view-row" id="view-row">
+      <button class="view-active" onclick="setView('arrows')">Displacement Arrows</button>
+      <button class="btn-secondary" onclick="setView('contour')">|d| Contour</button>
+      <button class="btn-secondary" onclick="setView('deformed')">Deformed Only</button>
+    </div>
+    <canvas id="main-canvas"></canvas>
+    <div class="disp-readout" id="disp-readout"></div>
+    <p class="instructions">Drag the red nodes to prescribe displacements.
+      Strain and stress update in real time.</p>
+
+    <label style="margin-top:14px">Strain Components (constant in CST)</label>
+    <div style="display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;">
+      <canvas id="cv-epsx" width="200" height="200"
+        style="border:1px solid #ddd; border-radius:6px; background:#fafbfc; flex:1; min-width:160px; max-width:220px;"></canvas>
+      <canvas id="cv-epsy" width="200" height="200"
+        style="border:1px solid #ddd; border-radius:6px; background:#fafbfc; flex:1; min-width:160px; max-width:220px;"></canvas>
+      <canvas id="cv-gxy" width="200" height="200"
+        style="border:1px solid #ddd; border-radius:6px; background:#fafbfc; flex:1; min-width:160px; max-width:220px;"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const ORIG = [[1.5,1],[6.5,1],[4,5]];  // original node positions
+let cur = ORIG.map(n => [...n]);        // current (displaced) positions
+let dragging = -1;
+let viewMode = 'arrows';
+
+// ============================================================
+//  COORDINATE TRANSFORM
+// ============================================================
+let TX, TY, INV_TX, INV_TY;
+function setupTransform(W, H) {
+  const pad = 60;
+  const xmn=0, xmx=8, ymn=0, ymx=6;
+  const sx = (W-2*pad)/(xmx-xmn), sy = (H-2*pad)/(ymx-ymn);
+  const sc = Math.min(sx, sy);
+  const ox = pad + ((W-2*pad) - (xmx-xmn)*sc)/2;
+  const oy = H - pad;
+  TX = x => ox + (x-xmn)*sc;
+  TY = y => oy - (y-ymn)*sc;
+  INV_TX = px => (px-ox)/sc + xmn;
+  INV_TY = py => -(py-oy)/sc + ymn;
+}
+
+// ============================================================
+//  CST COMPUTATION
+// ============================================================
+function planeStressE() {
+  const E = +document.getElementById('inp-E').value;
+  const nu = +document.getElementById('inp-nu').value;
+  const c = E/(1-nu*nu);
+  return [[c, c*nu, 0],[c*nu, c, 0],[0, 0, c*(1-nu)/2]];
+}
+
+function getDisp() {
+  const d = [];
+  for (let i=0;i<3;i++) {
+    d.push(cur[i][0]-ORIG[i][0]);
+    d.push(cur[i][1]-ORIG[i][1]);
+  }
+  return d;
+}
+
+function computeB() {
+  const [x1,y1]=ORIG[0],[x2,y2]=ORIG[1],[x3,y3]=ORIG[2];
+  const A2 = (x2-x1)*(y3-y1)-(x3-x1)*(y2-y1);
+  const b1=y2-y3, b2=y3-y1, b3=y1-y2;
+  const c1=x3-x2, c2=x1-x3, c3=x2-x1;
+  const B = [
+    [b1/A2,0, b2/A2,0, b3/A2,0],
+    [0,c1/A2, 0,c2/A2, 0,c3/A2],
+    [c1/A2,b1/A2, c2/A2,b2/A2, c3/A2,b3/A2]
+  ];
+  return { B, area: A2/2 };
+}
+
+function shapeFns(x, y) {
+  const [x1,y1]=ORIG[0],[x2,y2]=ORIG[1],[x3,y3]=ORIG[2];
+  const A2 = (x2-x1)*(y3-y1)-(x3-x1)*(y2-y1);
+  const N1 = ((x2-x)*(y3-y)-(x3-x)*(y2-y))/A2;
+  const N2 = ((x3-x)*(y1-y)-(x1-x)*(y3-y))/A2;
+  return [N1, N2, 1-N1-N2];
+}
+
+function interpDisp(x, y) {
+  const N = shapeFns(x, y);
+  const d = getDisp();
+  return [
+    N[0]*d[0]+N[1]*d[2]+N[2]*d[4],
+    N[0]*d[1]+N[1]*d[3]+N[2]*d[5]
+  ];
+}
+
+let results = { eps:[0,0,0], sig:[0,0,0], vm:0, area:0 };
+
+function recompute() {
+  const d = getDisp();
+  const {B, area} = computeB();
+  const eps=[0,0,0], sig=[0,0,0];
+  for (let i=0;i<3;i++) for (let j=0;j<6;j++) eps[i]+=B[i][j]*d[j];
+  const Em = planeStressE();
+  for (let i=0;i<3;i++) for (let j=0;j<3;j++) sig[i]+=Em[i][j]*eps[j];
+  const vm = Math.sqrt(sig[0]*sig[0]-sig[0]*sig[1]+sig[1]*sig[1]+3*sig[2]*sig[2]);
+  results = {eps, sig, vm, area};
+  updateReadouts();
+}
+
+// ============================================================
+//  READOUT UPDATES
+// ============================================================
+function fmt(v) { return (v>=0?' ':'')+v.toFixed(5); }
+function updateReadouts() {
+  const {eps,sig,vm,area} = results;
+  document.getElementById('strain-out').innerHTML =
+    `<span class="lbl">&epsilon;<sub>x</sub></span><span class="val">${fmt(eps[0])}</span>
+     <span class="lbl">&epsilon;<sub>y</sub></span><span class="val">${fmt(eps[1])}</span>
+     <span class="lbl">&gamma;<sub>xy</sub></span><span class="val">${fmt(eps[2])}</span>`;
+  document.getElementById('stress-out').innerHTML =
+    `<span class="lbl">&sigma;<sub>x</sub></span><span class="val">${fmt(sig[0])}</span>
+     <span class="lbl">&sigma;<sub>y</sub></span><span class="val">${fmt(sig[1])}</span>
+     <span class="lbl">&tau;<sub>xy</sub></span><span class="val">${fmt(sig[2])}</span>
+     <span class="lbl">&sigma;<sub>vm</sub></span><span class="val">${fmt(vm)}</span>`;
+  document.getElementById('info-out').innerHTML =
+    `<span class="lbl">Area</span><span class="val">${area.toFixed(3)}</span>
+     <span class="lbl">Nodes</span><span class="val">3</span>
+     <span class="lbl">DOFs</span><span class="val">6</span>
+     <span class="lbl">Strain</span><span class="val">constant</span>`;
+
+  const d = getDisp();
+  const dr = document.getElementById('disp-readout');
+  dr.innerHTML = '';
+  for (let i=0;i<3;i++) {
+    dr.innerHTML += `<div class="node-disp"><span>Node ${i+1}:</span>
+      u=${d[2*i].toFixed(3)}, v=${d[2*i+1].toFixed(3)}</div>`;
+  }
+}
+
+// ============================================================
+//  COLORMAP
+// ============================================================
+function cmap(t) {
+  t=Math.max(0,Math.min(1,t));
+  let r,g,b;
+  if (t<0.25){const s=t/0.25;r=0;g=~~(255*s);b=255;}
+  else if(t<0.5){const s=(t-0.25)/0.25;r=0;g=255;b=~~(255*(1-s));}
+  else if(t<0.75){const s=(t-0.5)/0.25;r=~~(255*s);g=255;b=0;}
+  else{const s=(t-0.75)/0.25;r=255;g=~~(255*(1-s));b=0;}
+  return `rgb(${r},${g},${b})`;
+}
+
+// ============================================================
+//  DRAWING
+// ============================================================
+function redraw() {
+  const cv = document.getElementById('main-canvas');
+  const W = cv.parentElement.clientWidth - 32;
+  const H = 460;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  setupTransform(W, H);
+
+  // Original element (dashed)
+  ctx.setLineDash([6,4]);
+  ctx.beginPath();
+  ctx.moveTo(TX(ORIG[0][0]),TY(ORIG[0][1]));
+  ctx.lineTo(TX(ORIG[1][0]),TY(ORIG[1][1]));
+  ctx.lineTo(TX(ORIG[2][0]),TY(ORIG[2][1]));
+  ctx.closePath();
+  ctx.strokeStyle='#bbb'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.setLineDash([]);
+
+  const d = getDisp();
+  const hasDisp = d.some(v => Math.abs(v) > 1e-10);
+
+  // Visualization inside original element
+  if (hasDisp && (viewMode === 'arrows' || viewMode === 'contour')) {
+    const RES = 40;
+    // Bounding box of original triangle
+    const xs = ORIG.map(n=>n[0]), ys = ORIG.map(n=>n[1]);
+    const bx0=Math.min(...xs), bx1=Math.max(...xs);
+    const by0=Math.min(...ys), by1=Math.max(...ys);
+    const dx=(bx1-bx0)/RES, dy=(by1-by0)/RES;
+
+    if (viewMode === 'contour') {
+      // |d| contour
+      let vmax = 0;
+      for (let i=0;i<3;i++) vmax=Math.max(vmax,Math.hypot(d[2*i],d[2*i+1]));
+      if (vmax < 1e-12) vmax = 1;
+      for (let j=0;j<RES;j++) for (let i=0;i<RES;i++) {
+        const px=bx0+(i+0.5)*dx, py=by0+(j+0.5)*dy;
+        const N=shapeFns(px,py);
+        if (N[0]<-0.01||N[1]<-0.01||N[2]<-0.01) continue;
+        const [u,v]=interpDisp(px,py);
+        ctx.fillStyle=cmap(Math.hypot(u,v)/vmax);
+        const sx=TX(px)-TX(bx0+i*dx)+TX(bx0+i*dx);
+        ctx.fillRect(TX(bx0+i*dx),TY(by0+(j+1)*dy),
+          TX(bx0+(i+1)*dx)-TX(bx0+i*dx)+1,
+          TY(by0+j*dy)-TY(by0+(j+1)*dy)+1);
+      }
+      // Color bar
+      const cbx=TX(bx0), cby=TY(by0)-30, cbw=TX(bx1)-TX(bx0), cbh=12;
+      for (let i=0;i<cbw;i++){ctx.fillStyle=cmap(i/cbw);ctx.fillRect(cbx+i,cby,1,cbh);}
+      ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.strokeRect(cbx,cby,cbw,cbh);
+      ctx.fillStyle='#555';ctx.font='10px monospace';
+      ctx.textAlign='left';ctx.fillText('0',cbx,cby+cbh+11);
+      ctx.textAlign='right';ctx.fillText(vmax.toFixed(4),cbx+cbw,cby+cbh+11);
+      ctx.textAlign='center';ctx.fillText('|d|',cbx+cbw/2,cby-3);
+    }
+
+    if (viewMode === 'arrows') {
+      // Displacement arrows
+      const step = 8;
+      let maxMag = 0;
+      for (let i=0;i<3;i++) maxMag=Math.max(maxMag,Math.hypot(d[2*i],d[2*i+1]));
+      const arrowScale = maxMag > 1e-10 ? 80/maxMag : 1;
+
+      for (let j=0;j<=step;j++) for (let i=0;i<=step-j;i++) {
+        const L1=i/step, L2=j/step, L3=1-L1-L2;
+        const px=L1*ORIG[0][0]+L2*ORIG[1][0]+L3*ORIG[2][0];
+        const py=L1*ORIG[0][1]+L2*ORIG[1][1]+L3*ORIG[2][1];
+        const [u,v]=interpDisp(px,py);
+        const mag=Math.hypot(u,v);
+        if (mag<1e-12) continue;
+        const sx=TX(px), sy=TY(py);
+        const ex=sx+u*arrowScale, ey=sy-v*arrowScale;
+        // Arrow body
+        ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey);
+        ctx.strokeStyle = cmap(mag/maxMag);
+        ctx.lineWidth=1.8; ctx.stroke();
+        // Arrowhead
+        const ang=Math.atan2(ey-sy,ex-sx);
+        ctx.beginPath();
+        ctx.moveTo(ex,ey);
+        ctx.lineTo(ex-6*Math.cos(ang-0.4),ey-6*Math.sin(ang-0.4));
+        ctx.lineTo(ex-6*Math.cos(ang+0.4),ey-6*Math.sin(ang+0.4));
+        ctx.closePath();
+        ctx.fillStyle=cmap(mag/maxMag); ctx.fill();
+      }
+    }
+  }
+
+  // Deformed element (filled)
+  if (hasDisp) {
+    ctx.beginPath();
+    ctx.moveTo(TX(cur[0][0]),TY(cur[0][1]));
+    ctx.lineTo(TX(cur[1][0]),TY(cur[1][1]));
+    ctx.lineTo(TX(cur[2][0]),TY(cur[2][1]));
+    ctx.closePath();
+    ctx.fillStyle='rgba(59,130,246,0.12)';
+    ctx.fill();
+    ctx.strokeStyle='#3b82f6'; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  // Original element fill (light)
+  if (!hasDisp) {
+    ctx.beginPath();
+    ctx.moveTo(TX(ORIG[0][0]),TY(ORIG[0][1]));
+    ctx.lineTo(TX(ORIG[1][0]),TY(ORIG[1][1]));
+    ctx.lineTo(TX(ORIG[2][0]),TY(ORIG[2][1]));
+    ctx.closePath();
+    ctx.fillStyle='rgba(200,210,230,0.25)'; ctx.fill();
+  }
+
+  // Nodes — draw original positions (gray) if displaced
+  if (hasDisp) {
+    for (let i=0;i<3;i++) {
+      ctx.beginPath(); ctx.arc(TX(ORIG[i][0]),TY(ORIG[i][1]),5,0,2*Math.PI);
+      ctx.fillStyle='#ccc'; ctx.fill();
+      ctx.strokeStyle='#aaa'; ctx.lineWidth=1; ctx.stroke();
+    }
+  }
+
+  // Nodes — current positions (draggable)
+  for (let i=0;i<3;i++) {
+    const sx=TX(cur[i][0]), sy=TY(cur[i][1]);
+    ctx.beginPath(); ctx.arc(sx,sy,11,0,2*Math.PI);
+    ctx.fillStyle = i===dragging ? '#c22' : '#e44';
+    ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i+1, sx, sy);
+  }
+
+  // DOF arrows at original positions
+  for (let i=0;i<3;i++) {
+    const ox=TX(ORIG[i][0]), oy=TY(ORIG[i][1]);
+    // u arrow
+    drawSmallArrow(ctx, ox+16, oy, ox+32, oy, '#888');
+    ctx.fillStyle='#888'; ctx.font='10px serif'; ctx.textAlign='left';
+    ctx.fillText(`u${i+1}`, ox+34, oy+3);
+    // v arrow
+    drawSmallArrow(ctx, ox, oy-16, ox, oy-32, '#888');
+    ctx.fillText(`v${i+1}`, ox+3, oy-34);
+  }
+
+  // Labels
+  ctx.fillStyle='#aaa'; ctx.font='11px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('Original (dashed) | Deformed (blue)', 8, H-8);
+
+  // Update the three strain canvases
+  drawStrainCanvases();
+}
+
+function drawSmallArrow(ctx, x1,y1,x2,y2,color) {
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.strokeStyle=color; ctx.lineWidth=1; ctx.stroke();
+  const a=Math.atan2(y2-y1,x2-x1);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-5*Math.cos(a-0.5),y2-5*Math.sin(a-0.5));
+  ctx.lineTo(x2-5*Math.cos(a+0.5),y2-5*Math.sin(a+0.5));
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+}
+
+// ============================================================
+//  THREE STRAIN COMPONENT CANVASES
+// ============================================================
+function drawStrainCanvases() {
+  const {eps} = results;
+  drawOneStrain('cv-epsx', '\u03B5x', eps[0], 'epsx', '#d94');
+  drawOneStrain('cv-epsy', '\u03B5y', eps[1], 'epsy', '#3878c4');
+  drawOneStrain('cv-gxy',  '\u03B3xy', eps[2], 'gxy',  '#2a9');
+}
+
+function drawOneStrain(canvasId, label, val, mode, color) {
+  const cv = document.getElementById(canvasId);
+  const S = Math.min(cv.clientWidth, cv.clientHeight);
+  cv.width = S; cv.height = S;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, S, S);
+
+  const cx = S/2, cy = S/2;     // center
+  const sz = S * 0.25;           // half-size of reference square
+  const amp = sz * 0.6;          // max visual deformation in pixels
+  const maxClamp = 0.5;          // clamp so shape doesn't invert
+  const sv = Math.max(-maxClamp, Math.min(maxClamp, val));
+  // Scaled deformation: 1 pixel per (maxClamp / amp)
+  const d = sv * amp / maxClamp; // pixel offset for this strain value
+
+  // --- Reference square (dashed) ---
+  ctx.setLineDash([5,3]);
+  ctx.strokeStyle='#ccc'; ctx.lineWidth=1.5;
+  ctx.strokeRect(cx-sz, cy-sz, 2*sz, 2*sz);
+  ctx.setLineDash([]);
+
+  // --- Deformed shape ---
+  // Corners of reference: TL, TR, BR, BL in screen coords
+  // Physical: right=+x, up=+y.  Screen: right=+x, down=+y (y flipped).
+  let pts;
+  if (mode === 'epsx') {
+    // Only horizontal stretch: left/right edges move
+    pts = [
+      [cx-sz-d, cy-sz],   // TL
+      [cx+sz+d, cy-sz],   // TR
+      [cx+sz+d, cy+sz],   // BR
+      [cx-sz-d, cy+sz],   // BL
+    ];
+  } else if (mode === 'epsy') {
+    // Only vertical stretch: top/bottom edges move (screen y flipped)
+    pts = [
+      [cx-sz, cy-sz-d],   // TL (moves up = screen up = -y)
+      [cx+sz, cy-sz-d],   // TR
+      [cx+sz, cy+sz+d],   // BR (moves down = screen down = +y)
+      [cx-sz, cy+sz+d],   // BL
+    ];
+  } else {
+    // Shear: top edge shifts right, bottom shifts left (or vice versa)
+    // gamma_xy = du/dy + dv/dx.  Classic visualization: pure shear
+    // shifts horizontal edges: top row shifts +d, bottom shifts -d
+    pts = [
+      [cx-sz-d, cy-sz],   // TL shifts left
+      [cx+sz-d, cy-sz],   // TR shifts left
+      [cx+sz+d, cy+sz],   // BR shifts right
+      [cx-sz+d, cy+sz],   // BL shifts right
+    ];
+  }
+
+  // Fill
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0],pts[0][1]);
+  for (let k=1;k<4;k++) ctx.lineTo(pts[k][0],pts[k][1]);
+  ctx.closePath();
+  ctx.fillStyle = color + '22'; ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // --- Dimension indicators ---
+  if (mode === 'epsx' && Math.abs(val) > 1e-10) {
+    // Horizontal arrows showing extension
+    const ay = cy + sz + 14;
+    drawDimLine(ctx, cx-sz, ay, cx-sz-d, ay, color);
+    drawDimLine(ctx, cx+sz, ay, cx+sz+d, ay, color);
+    // Dashed reference ticks
+    ctx.setLineDash([2,2]); ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx-sz,cy+sz+4); ctx.lineTo(cx-sz,ay+6);
+    ctx.moveTo(cx+sz,cy+sz+4); ctx.lineTo(cx+sz,ay+6); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (mode === 'epsy' && Math.abs(val) > 1e-10) {
+    const ax = cx + sz + 14;
+    drawDimLine(ctx, ax, cy-sz, ax, cy-sz-d, color);
+    drawDimLine(ctx, ax, cy+sz, ax, cy+sz+d, color);
+    ctx.setLineDash([2,2]); ctx.strokeStyle='#ccc'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx+sz+4,cy-sz); ctx.lineTo(ax+6,cy-sz);
+    ctx.moveTo(cx+sz+4,cy+sz); ctx.lineTo(ax+6,cy+sz); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (mode === 'gxy' && Math.abs(val) > 1e-10) {
+    // Angle arc at bottom-left corner
+    const arcR = 18;
+    const bx = pts[3][0], by = pts[3][1]; // BL of deformed
+    const origAng = -Math.PI/2;
+    const defAng = Math.atan2(pts[0][1]-by, pts[0][0]-bx);
+    const a1 = Math.min(origAng,defAng), a2 = Math.max(origAng,defAng);
+    ctx.beginPath(); ctx.arc(bx,by, arcR, a1, a2);
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  // --- Label with value ---
+  ctx.fillStyle = color; ctx.font = 'bold 14px serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`${label} = ${val.toFixed(5)}`, cx, 6);
+
+  // --- Sign indicator ---
+  if (Math.abs(val) > 1e-10) {
+    ctx.fillStyle = '#888'; ctx.font = '11px sans-serif';
+    ctx.textBaseline = 'bottom';
+    if (mode === 'epsx') {
+      ctx.fillText(val>0 ? 'tension' : 'compression', cx, S-4);
+    } else if (mode === 'epsy') {
+      ctx.fillText(val>0 ? 'tension' : 'compression', cx, S-4);
+    } else {
+      ctx.fillText(val>0 ? 'positive shear' : 'negative shear', cx, S-4);
+    }
+  }
+}
+
+function drawDimLine(ctx, x1,y1,x2,y2,color) {
+  const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy);
+  if (len<2) return;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+  const a=Math.atan2(dy,dx);
+  ctx.beginPath(); ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-6*Math.cos(a-0.4),y2-6*Math.sin(a-0.4));
+  ctx.lineTo(x2-6*Math.cos(a+0.4),y2-6*Math.sin(a+0.4));
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+}
+
+// ============================================================
+//  VIEW MODE
+// ============================================================
+const VIEWS = ['arrows','contour','deformed'];
+function setView(m) {
+  viewMode = m;
+  const btns = document.querySelectorAll('#view-row button');
+  btns.forEach((b,i) => b.className = VIEWS[i]===m ? 'view-active' : 'btn-secondary');
+  redraw();
+}
+
+// ============================================================
+//  MOUSE INTERACTION
+// ============================================================
+function getMouseXY(e) {
+  const cv = document.getElementById('main-canvas');
+  const r = cv.getBoundingClientRect();
+  const sx = cv.width/r.width, sy = cv.height/r.height;
+  return [(e.clientX-r.left)*sx, (e.clientY-r.top)*sy];
+}
+
+const cv = document.getElementById('main-canvas');
+
+cv.addEventListener('mousedown', function(e) {
+  const [mx,my] = getMouseXY(e);
+  for (let i=0;i<3;i++) {
+    if (Math.hypot(mx-TX(cur[i][0]), my-TY(cur[i][1])) < 16) {
+      dragging = i; cv.style.cursor='grabbing'; return;
+    }
+  }
+});
+
+cv.addEventListener('mousemove', function(e) {
+  const [mx,my] = getMouseXY(e);
+  if (dragging >= 0) {
+    cur[dragging] = [INV_TX(mx), INV_TY(my)];
+    recompute(); redraw();
+    return;
+  }
+  let over = false;
+  for (let i=0;i<3;i++)
+    if (Math.hypot(mx-TX(cur[i][0]),my-TY(cur[i][1])) < 16) { over=true; break; }
+  cv.style.cursor = over ? 'grab' : 'default';
+});
+
+cv.addEventListener('mouseup', function() {
+  if (dragging >= 0) { dragging=-1; cv.style.cursor='default'; }
+});
+cv.addEventListener('mouseleave', function() {
+  if (dragging >= 0) { dragging=-1; cv.style.cursor='default'; }
+});
+
+// Touch support
+cv.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  const t = e.touches[0];
+  const [mx,my] = getMouseXY(t);
+  for (let i=0;i<3;i++) {
+    if (Math.hypot(mx-TX(cur[i][0]),my-TY(cur[i][1])) < 24) {
+      dragging=i; return;
+    }
+  }
+}, {passive:false});
+cv.addEventListener('touchmove', function(e) {
+  e.preventDefault();
+  if (dragging<0) return;
+  const t = e.touches[0];
+  const [mx,my] = getMouseXY(t);
+  cur[dragging] = [INV_TX(mx), INV_TY(my)];
+  recompute(); redraw();
+}, {passive:false});
+cv.addEventListener('touchend', function() { dragging=-1; });
+
+// ============================================================
+//  ACTIONS
+// ============================================================
+function resetNodes() {
+  cur = ORIG.map(n=>[...n]);
+  recompute(); redraw();
+}
+
+function randomDisp() {
+  const scale = 0.4;
+  cur = ORIG.map(n => [
+    n[0]+(Math.random()-0.5)*scale*2,
+    n[1]+(Math.random()-0.5)*scale*2,
+  ]);
+  recompute(); redraw();
+}
+
+function pickType(t) {
+  // Only CST active for now
+  if (t !== 'cst') return;
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+recompute(); redraw();
+</script>
+</body>
+</html>
