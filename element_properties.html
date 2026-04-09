@@ -93,7 +93,7 @@ button {
 
 <div class="elem-tabs">
   <button class="tab-active" id="tab-cst" onclick="pickType('cst')">3-Node Triangle (CST)</button>
-  <button class="tab-disabled" title="Coming soon">4-Node Quad (Q4)</button>
+  <button class="tab-inactive" id="tab-q4" onclick="pickType('q4')">4-Node Quad (Q4)</button>
   <button class="tab-disabled" title="Coming soon">8-Node Quad (Q8)</button>
   <button class="tab-disabled" title="Coming soon">9-Node Quad (Q9)</button>
 </div>
@@ -101,8 +101,12 @@ button {
 <div class="layout">
   <!-- Left panel -->
   <div class="panel left-panel">
-    <label>Material (plane stress)</label>
-    <div class="input-row">
+    <label id="material-label">Material (plane stress)</label>
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn-active" id="btn-ps" onclick="setAnalysis('stress')">Plane Stress</button>
+      <button class="btn-secondary" id="btn-pn" onclick="setAnalysis('strain')">Plane Strain</button>
+    </div>
+    <div class="input-row" style="margin-top:6px">
       <span>E</span><input type="number" id="inp-E" value="1000" step="any"
         onchange="recompute(); redraw();">
     </div>
@@ -117,7 +121,7 @@ button {
     </div>
 
     <div class="readout">
-      <h3>Strain (constant in CST)</h3>
+      <h3 id="strain-h3">Strain (constant in CST)</h3>
       <div class="readout-grid" id="strain-out"></div>
     </div>
     <div class="readout">
@@ -142,7 +146,7 @@ button {
     <p class="instructions">Drag the red nodes to prescribe displacements.
       Strain and stress update in real time.</p>
 
-    <label style="margin-top:14px">Strain Components (constant in CST)</label>
+    <label id="strain-label" style="margin-top:14px">Strain Components (constant in CST)</label>
     <div style="display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;">
       <canvas id="cv-epsx" width="200" height="200"
         style="border:1px solid #ddd; border-radius:6px; background:#fafbfc; flex:1; min-width:160px; max-width:220px;"></canvas>
@@ -158,10 +162,14 @@ button {
 // ============================================================
 //  STATE
 // ============================================================
-const ORIG = [[1.5,1],[6.5,1],[4,5]];  // original node positions
-let cur = ORIG.map(n => [...n]);        // current (displaced) positions
+const ORIG_CST = [[1.5,1],[6.5,1],[4,5]];      // 3 nodes
+const ORIG_Q4  = [[1.5,1],[6.5,1],[6.5,5],[1.5,5]]; // 4 nodes (CCW)
+let elementType = 'cst';                        // 'cst' or 'q4'
+let ORIG = ORIG_CST.map(n => [...n]);           // original node positions
+let cur  = ORIG.map(n => [...n]);               // current (displaced) positions
 let dragging = -1;
 let viewMode = 'arrows';
+let analysisType = 'stress';  // 'stress' or 'strain'
 
 // ============================================================
 //  COORDINATE TRANSFORM
@@ -183,23 +191,34 @@ function setupTransform(W, H) {
 // ============================================================
 //  CST COMPUTATION
 // ============================================================
-function planeStressE() {
+function getEmatrix() {
   const E = +document.getElementById('inp-E').value;
   const nu = +document.getElementById('inp-nu').value;
+  if (analysisType === 'strain') {
+    // Plane strain
+    const c = E/((1+nu)*(1-2*nu));
+    return [
+      [c*(1-nu), c*nu,     0            ],
+      [c*nu,     c*(1-nu), 0            ],
+      [0,        0,        c*(1-2*nu)/2 ]
+    ];
+  }
+  // Plane stress
   const c = E/(1-nu*nu);
   return [[c, c*nu, 0],[c*nu, c, 0],[0, 0, c*(1-nu)/2]];
 }
 
 function getDisp() {
   const d = [];
-  for (let i=0;i<3;i++) {
+  for (let i=0;i<ORIG.length;i++) {
     d.push(cur[i][0]-ORIG[i][0]);
     d.push(cur[i][1]-ORIG[i][1]);
   }
   return d;
 }
 
-function computeB() {
+// ---------- CST: constant-strain triangle ----------
+function computeB_CST() {
   const [x1,y1]=ORIG[0],[x2,y2]=ORIG[1],[x3,y3]=ORIG[2];
   const A2 = (x2-x1)*(y3-y1)-(x3-x1)*(y2-y1);
   const b1=y2-y3, b2=y3-y1, b3=y1-y2;
@@ -212,7 +231,7 @@ function computeB() {
   return { B, area: A2/2 };
 }
 
-function shapeFns(x, y) {
+function shapeFnsCST(x, y) {
   const [x1,y1]=ORIG[0],[x2,y2]=ORIG[1],[x3,y3]=ORIG[2];
   const A2 = (x2-x1)*(y3-y1)-(x3-x1)*(y2-y1);
   const N1 = ((x2-x)*(y3-y)-(x3-x)*(y2-y))/A2;
@@ -220,8 +239,8 @@ function shapeFns(x, y) {
   return [N1, N2, 1-N1-N2];
 }
 
-function interpDisp(x, y) {
-  const N = shapeFns(x, y);
+function interpDispCST(x, y) {
+  const N = shapeFnsCST(x, y);
   const d = getDisp();
   return [
     N[0]*d[0]+N[1]*d[2]+N[2]*d[4],
@@ -229,14 +248,101 @@ function interpDisp(x, y) {
   ];
 }
 
+// ---------- Q4: bilinear quadrilateral (isoparametric) ----------
+function q4ShapeFns(xi, eta) {
+  return [
+    0.25*(1-xi)*(1-eta),
+    0.25*(1+xi)*(1-eta),
+    0.25*(1+xi)*(1+eta),
+    0.25*(1-xi)*(1+eta),
+  ];
+}
+
+function q4ShapeDerivs(xi, eta) {
+  return {
+    dNdxi:  [-(1-eta)/4,  (1-eta)/4,  (1+eta)/4, -(1+eta)/4],
+    dNdeta: [-(1-xi )/4, -(1+xi )/4,  (1+xi )/4,  (1-xi )/4],
+  };
+}
+
+// Isoparametric mapping (xi,eta) -> (x,y) using ORIG nodes
+function mapQ4(xi, eta) {
+  const N = q4ShapeFns(xi, eta);
+  let x=0, y=0;
+  for (let i=0;i<4;i++) { x += N[i]*ORIG[i][0]; y += N[i]*ORIG[i][1]; }
+  return [x, y];
+}
+
+// B matrix for Q4 at a given (xi,eta)
+function computeB_Q4(xi, eta) {
+  const {dNdxi, dNdeta} = q4ShapeDerivs(xi, eta);
+  // Jacobian of isoparametric mapping
+  let J00=0, J01=0, J10=0, J11=0;
+  for (let i=0;i<4;i++) {
+    J00 += dNdxi[i]  * ORIG[i][0];
+    J01 += dNdxi[i]  * ORIG[i][1];
+    J10 += dNdeta[i] * ORIG[i][0];
+    J11 += dNdeta[i] * ORIG[i][1];
+  }
+  const detJ = J00*J11 - J01*J10;
+  // Inverse Jacobian
+  const invJ00 =  J11/detJ, invJ01 = -J01/detJ;
+  const invJ10 = -J10/detJ, invJ11 =  J00/detJ;
+  // dN/dx, dN/dy
+  const dNdx = [], dNdy = [];
+  for (let i=0;i<4;i++) {
+    dNdx.push(invJ00*dNdxi[i] + invJ01*dNdeta[i]);
+    dNdy.push(invJ10*dNdxi[i] + invJ11*dNdeta[i]);
+  }
+  const B = [
+    [0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0],
+    [0,0,0,0, 0,0,0,0],
+  ];
+  for (let i=0;i<4;i++) {
+    B[0][2*i]   = dNdx[i];
+    B[1][2*i+1] = dNdy[i];
+    B[2][2*i]   = dNdy[i];
+    B[2][2*i+1] = dNdx[i];
+  }
+  return { B, detJ };
+}
+
+// Shoelace area of the original Q4 polygon
+function q4Area() {
+  let A = 0;
+  for (let i=0;i<4;i++) {
+    const j = (i+1)%4;
+    A += ORIG[i][0]*ORIG[j][1] - ORIG[j][0]*ORIG[i][1];
+  }
+  return Math.abs(A)/2;
+}
+
+// Bilinear interpolation of displacement in natural coords
+function interpDispQ4Nat(xi, eta) {
+  const N = q4ShapeFns(xi, eta);
+  const d = getDisp();
+  let u=0, v=0;
+  for (let i=0;i<4;i++) { u += N[i]*d[2*i]; v += N[i]*d[2*i+1]; }
+  return [u, v];
+}
+
 let results = { eps:[0,0,0], sig:[0,0,0], vm:0, area:0 };
 
 function recompute() {
   const d = getDisp();
-  const {B, area} = computeB();
+  let B, area, nDof;
+  if (elementType === 'cst') {
+    const r = computeB_CST();
+    B = r.B; area = r.area; nDof = 6;
+  } else {
+    // Evaluate at element centroid (xi=eta=0)
+    const r = computeB_Q4(0, 0);
+    B = r.B; area = q4Area(); nDof = 8;
+  }
   const eps=[0,0,0], sig=[0,0,0];
-  for (let i=0;i<3;i++) for (let j=0;j<6;j++) eps[i]+=B[i][j]*d[j];
-  const Em = planeStressE();
+  for (let i=0;i<3;i++) for (let j=0;j<nDof;j++) eps[i]+=B[i][j]*d[j];
+  const Em = getEmatrix();
   for (let i=0;i<3;i++) for (let j=0;j<3;j++) sig[i]+=Em[i][j]*eps[j];
   const vm = Math.sqrt(sig[0]*sig[0]-sig[0]*sig[1]+sig[1]*sig[1]+3*sig[2]*sig[2]);
   results = {eps, sig, vm, area};
@@ -258,19 +364,30 @@ function updateReadouts() {
      <span class="lbl">&sigma;<sub>y</sub></span><span class="val">${fmt(sig[1])}</span>
      <span class="lbl">&tau;<sub>xy</sub></span><span class="val">${fmt(sig[2])}</span>
      <span class="lbl">&sigma;<sub>vm</sub></span><span class="val">${fmt(vm)}</span>`;
+  const nNodes = ORIG.length;
+  const nDofs  = nNodes*2;
+  const strainType = elementType === 'cst' ? 'constant' : 'bilinear';
   document.getElementById('info-out').innerHTML =
     `<span class="lbl">Area</span><span class="val">${area.toFixed(3)}</span>
-     <span class="lbl">Nodes</span><span class="val">3</span>
-     <span class="lbl">DOFs</span><span class="val">6</span>
-     <span class="lbl">Strain</span><span class="val">constant</span>`;
+     <span class="lbl">Nodes</span><span class="val">${nNodes}</span>
+     <span class="lbl">DOFs</span><span class="val">${nDofs}</span>
+     <span class="lbl">Strain</span><span class="val">${strainType}</span>`;
 
   const d = getDisp();
   const dr = document.getElementById('disp-readout');
   dr.innerHTML = '';
-  for (let i=0;i<3;i++) {
+  for (let i=0;i<nNodes;i++) {
     dr.innerHTML += `<div class="node-disp"><span>Node ${i+1}:</span>
       u=${d[2*i].toFixed(3)}, v=${d[2*i+1].toFixed(3)}</div>`;
   }
+}
+
+function updateTypeLabels() {
+  const note = elementType === 'cst'
+    ? '(constant in CST)'
+    : '(at centroid, bilinear)';
+  document.getElementById('strain-h3').textContent = 'Strain ' + note;
+  document.getElementById('strain-label').textContent = 'Strain Components ' + note;
 }
 
 // ============================================================
@@ -297,12 +414,13 @@ function redraw() {
   const ctx = cv.getContext('2d');
   setupTransform(W, H);
 
-  // Original element (dashed)
+  const nNodes = ORIG.length;
+
+  // Original element outline (dashed)
   ctx.setLineDash([6,4]);
   ctx.beginPath();
   ctx.moveTo(TX(ORIG[0][0]),TY(ORIG[0][1]));
-  ctx.lineTo(TX(ORIG[1][0]),TY(ORIG[1][1]));
-  ctx.lineTo(TX(ORIG[2][0]),TY(ORIG[2][1]));
+  for (let i=1;i<nNodes;i++) ctx.lineTo(TX(ORIG[i][0]),TY(ORIG[i][1]));
   ctx.closePath();
   ctx.strokeStyle='#bbb'; ctx.lineWidth=1.5; ctx.stroke();
   ctx.setLineDash([]);
@@ -312,77 +430,15 @@ function redraw() {
 
   // Visualization inside original element
   if (hasDisp && (viewMode === 'arrows' || viewMode === 'contour')) {
-    const RES = 40;
-    // Bounding box of original triangle
-    const xs = ORIG.map(n=>n[0]), ys = ORIG.map(n=>n[1]);
-    const bx0=Math.min(...xs), bx1=Math.max(...xs);
-    const by0=Math.min(...ys), by1=Math.max(...ys);
-    const dx=(bx1-bx0)/RES, dy=(by1-by0)/RES;
-
-    if (viewMode === 'contour') {
-      // |d| contour
-      let vmax = 0;
-      for (let i=0;i<3;i++) vmax=Math.max(vmax,Math.hypot(d[2*i],d[2*i+1]));
-      if (vmax < 1e-12) vmax = 1;
-      for (let j=0;j<RES;j++) for (let i=0;i<RES;i++) {
-        const px=bx0+(i+0.5)*dx, py=by0+(j+0.5)*dy;
-        const N=shapeFns(px,py);
-        if (N[0]<-0.01||N[1]<-0.01||N[2]<-0.01) continue;
-        const [u,v]=interpDisp(px,py);
-        ctx.fillStyle=cmap(Math.hypot(u,v)/vmax);
-        const sx=TX(px)-TX(bx0+i*dx)+TX(bx0+i*dx);
-        ctx.fillRect(TX(bx0+i*dx),TY(by0+(j+1)*dy),
-          TX(bx0+(i+1)*dx)-TX(bx0+i*dx)+1,
-          TY(by0+j*dy)-TY(by0+(j+1)*dy)+1);
-      }
-      // Color bar
-      const cbx=TX(bx0), cby=TY(by0)-30, cbw=TX(bx1)-TX(bx0), cbh=12;
-      for (let i=0;i<cbw;i++){ctx.fillStyle=cmap(i/cbw);ctx.fillRect(cbx+i,cby,1,cbh);}
-      ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.strokeRect(cbx,cby,cbw,cbh);
-      ctx.fillStyle='#555';ctx.font='10px monospace';
-      ctx.textAlign='left';ctx.fillText('0',cbx,cby+cbh+11);
-      ctx.textAlign='right';ctx.fillText(vmax.toFixed(4),cbx+cbw,cby+cbh+11);
-      ctx.textAlign='center';ctx.fillText('|d|',cbx+cbw/2,cby-3);
-    }
-
-    if (viewMode === 'arrows') {
-      // Displacement arrows
-      const step = 8;
-      let maxMag = 0;
-      for (let i=0;i<3;i++) maxMag=Math.max(maxMag,Math.hypot(d[2*i],d[2*i+1]));
-      const arrowScale = maxMag > 1e-10 ? 80/maxMag : 1;
-
-      for (let j=0;j<=step;j++) for (let i=0;i<=step-j;i++) {
-        const L1=i/step, L2=j/step, L3=1-L1-L2;
-        const px=L1*ORIG[0][0]+L2*ORIG[1][0]+L3*ORIG[2][0];
-        const py=L1*ORIG[0][1]+L2*ORIG[1][1]+L3*ORIG[2][1];
-        const [u,v]=interpDisp(px,py);
-        const mag=Math.hypot(u,v);
-        if (mag<1e-12) continue;
-        const sx=TX(px), sy=TY(py);
-        const ex=sx+u*arrowScale, ey=sy-v*arrowScale;
-        // Arrow body
-        ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey);
-        ctx.strokeStyle = cmap(mag/maxMag);
-        ctx.lineWidth=1.8; ctx.stroke();
-        // Arrowhead
-        const ang=Math.atan2(ey-sy,ex-sx);
-        ctx.beginPath();
-        ctx.moveTo(ex,ey);
-        ctx.lineTo(ex-6*Math.cos(ang-0.4),ey-6*Math.sin(ang-0.4));
-        ctx.lineTo(ex-6*Math.cos(ang+0.4),ey-6*Math.sin(ang+0.4));
-        ctx.closePath();
-        ctx.fillStyle=cmap(mag/maxMag); ctx.fill();
-      }
-    }
+    if (elementType === 'cst') drawFieldCST(ctx, d);
+    else                       drawFieldQ4(ctx, d);
   }
 
   // Deformed element (filled)
   if (hasDisp) {
     ctx.beginPath();
     ctx.moveTo(TX(cur[0][0]),TY(cur[0][1]));
-    ctx.lineTo(TX(cur[1][0]),TY(cur[1][1]));
-    ctx.lineTo(TX(cur[2][0]),TY(cur[2][1]));
+    for (let i=1;i<nNodes;i++) ctx.lineTo(TX(cur[i][0]),TY(cur[i][1]));
     ctx.closePath();
     ctx.fillStyle='rgba(59,130,246,0.12)';
     ctx.fill();
@@ -393,15 +449,14 @@ function redraw() {
   if (!hasDisp) {
     ctx.beginPath();
     ctx.moveTo(TX(ORIG[0][0]),TY(ORIG[0][1]));
-    ctx.lineTo(TX(ORIG[1][0]),TY(ORIG[1][1]));
-    ctx.lineTo(TX(ORIG[2][0]),TY(ORIG[2][1]));
+    for (let i=1;i<nNodes;i++) ctx.lineTo(TX(ORIG[i][0]),TY(ORIG[i][1]));
     ctx.closePath();
     ctx.fillStyle='rgba(200,210,230,0.25)'; ctx.fill();
   }
 
   // Nodes — draw original positions (gray) if displaced
   if (hasDisp) {
-    for (let i=0;i<3;i++) {
+    for (let i=0;i<nNodes;i++) {
       ctx.beginPath(); ctx.arc(TX(ORIG[i][0]),TY(ORIG[i][1]),5,0,2*Math.PI);
       ctx.fillStyle='#ccc'; ctx.fill();
       ctx.strokeStyle='#aaa'; ctx.lineWidth=1; ctx.stroke();
@@ -409,7 +464,7 @@ function redraw() {
   }
 
   // Nodes — current positions (draggable)
-  for (let i=0;i<3;i++) {
+  for (let i=0;i<nNodes;i++) {
     const sx=TX(cur[i][0]), sy=TY(cur[i][1]);
     ctx.beginPath(); ctx.arc(sx,sy,11,0,2*Math.PI);
     ctx.fillStyle = i===dragging ? '#c22' : '#e44';
@@ -421,7 +476,7 @@ function redraw() {
   }
 
   // DOF arrows at original positions
-  for (let i=0;i<3;i++) {
+  for (let i=0;i<nNodes;i++) {
     const ox=TX(ORIG[i][0]), oy=TY(ORIG[i][1]);
     // u arrow
     drawSmallArrow(ctx, ox+16, oy, ox+32, oy, '#888');
@@ -438,6 +493,125 @@ function redraw() {
 
   // Update the three strain canvases
   drawStrainCanvases();
+}
+
+// ============================================================
+//  FIELD VISUALIZATION (CST and Q4)
+// ============================================================
+function drawColorBar(ctx, vmax) {
+  const xs = ORIG.map(n=>n[0]), ys = ORIG.map(n=>n[1]);
+  const bx0=Math.min(...xs), bx1=Math.max(...xs), by0=Math.min(...ys);
+  const cbx=TX(bx0), cby=TY(by0)-30, cbw=TX(bx1)-TX(bx0), cbh=12;
+  for (let i=0;i<cbw;i++){ctx.fillStyle=cmap(i/cbw);ctx.fillRect(cbx+i,cby,1,cbh);}
+  ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.strokeRect(cbx,cby,cbw,cbh);
+  ctx.fillStyle='#555';ctx.font='10px monospace';
+  ctx.textAlign='left';ctx.fillText('0',cbx,cby+cbh+11);
+  ctx.textAlign='right';ctx.fillText(vmax.toFixed(4),cbx+cbw,cby+cbh+11);
+  ctx.textAlign='center';ctx.fillText('|d|',cbx+cbw/2,cby-3);
+}
+
+function drawArrow(ctx, sx, sy, ex, ey, color) {
+  ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey);
+  ctx.strokeStyle = color; ctx.lineWidth=1.8; ctx.stroke();
+  const ang=Math.atan2(ey-sy,ex-sx);
+  ctx.beginPath();
+  ctx.moveTo(ex,ey);
+  ctx.lineTo(ex-6*Math.cos(ang-0.4),ey-6*Math.sin(ang-0.4));
+  ctx.lineTo(ex-6*Math.cos(ang+0.4),ey-6*Math.sin(ang+0.4));
+  ctx.closePath();
+  ctx.fillStyle=color; ctx.fill();
+}
+
+function drawFieldCST(ctx, d) {
+  const RES = 40;
+  const xs = ORIG.map(n=>n[0]), ys = ORIG.map(n=>n[1]);
+  const bx0=Math.min(...xs), bx1=Math.max(...xs);
+  const by0=Math.min(...ys), by1=Math.max(...ys);
+  const dx=(bx1-bx0)/RES, dy=(by1-by0)/RES;
+
+  if (viewMode === 'contour') {
+    let vmax = 0;
+    for (let i=0;i<3;i++) vmax=Math.max(vmax,Math.hypot(d[2*i],d[2*i+1]));
+    if (vmax < 1e-12) vmax = 1;
+    for (let j=0;j<RES;j++) for (let i=0;i<RES;i++) {
+      const px=bx0+(i+0.5)*dx, py=by0+(j+0.5)*dy;
+      const N=shapeFnsCST(px,py);
+      if (N[0]<-0.01||N[1]<-0.01||N[2]<-0.01) continue;
+      const [u,v]=interpDispCST(px,py);
+      ctx.fillStyle=cmap(Math.hypot(u,v)/vmax);
+      ctx.fillRect(TX(bx0+i*dx),TY(by0+(j+1)*dy),
+        TX(bx0+(i+1)*dx)-TX(bx0+i*dx)+1,
+        TY(by0+j*dy)-TY(by0+(j+1)*dy)+1);
+    }
+    drawColorBar(ctx, vmax);
+  }
+
+  if (viewMode === 'arrows') {
+    const step = 8;
+    let maxMag = 0;
+    for (let i=0;i<3;i++) maxMag=Math.max(maxMag,Math.hypot(d[2*i],d[2*i+1]));
+    const arrowScale = maxMag > 1e-10 ? 80/maxMag : 1;
+
+    for (let j=0;j<=step;j++) for (let i=0;i<=step-j;i++) {
+      const L1=i/step, L2=j/step, L3=1-L1-L2;
+      const px=L1*ORIG[0][0]+L2*ORIG[1][0]+L3*ORIG[2][0];
+      const py=L1*ORIG[0][1]+L2*ORIG[1][1]+L3*ORIG[2][1];
+      const [u,v]=interpDispCST(px,py);
+      const mag=Math.hypot(u,v);
+      if (mag<1e-12) continue;
+      const sx=TX(px), sy=TY(py);
+      const ex=sx+u*arrowScale, ey=sy-v*arrowScale;
+      drawArrow(ctx, sx, sy, ex, ey, cmap(mag/maxMag));
+    }
+  }
+}
+
+function drawFieldQ4(ctx, d) {
+  if (viewMode === 'contour') {
+    const RES = 32;
+    let vmax = 0;
+    for (let i=0;i<4;i++) vmax=Math.max(vmax,Math.hypot(d[2*i],d[2*i+1]));
+    if (vmax < 1e-12) vmax = 1;
+    // Sweep natural coord grid and draw mapped quads
+    for (let j=0;j<RES;j++) for (let i=0;i<RES;i++) {
+      const xi0 = -1 + 2*i/RES,     eta0 = -1 + 2*j/RES;
+      const xi1 = -1 + 2*(i+1)/RES, eta1 = -1 + 2*(j+1)/RES;
+      const xic = (xi0+xi1)/2,      etac = (eta0+eta1)/2;
+      const [u,v] = interpDispQ4Nat(xic, etac);
+      ctx.fillStyle = cmap(Math.hypot(u,v)/vmax);
+      const p00 = mapQ4(xi0, eta0);
+      const p10 = mapQ4(xi1, eta0);
+      const p11 = mapQ4(xi1, eta1);
+      const p01 = mapQ4(xi0, eta1);
+      ctx.beginPath();
+      ctx.moveTo(TX(p00[0]), TY(p00[1]));
+      ctx.lineTo(TX(p10[0]), TY(p10[1]));
+      ctx.lineTo(TX(p11[0]), TY(p11[1]));
+      ctx.lineTo(TX(p01[0]), TY(p01[1]));
+      ctx.closePath();
+      ctx.fill();
+    }
+    drawColorBar(ctx, vmax);
+  }
+
+  if (viewMode === 'arrows') {
+    const step = 9;
+    let maxMag = 0;
+    for (let i=0;i<4;i++) maxMag=Math.max(maxMag,Math.hypot(d[2*i],d[2*i+1]));
+    const arrowScale = maxMag > 1e-10 ? 80/maxMag : 1;
+
+    for (let j=0;j<=step;j++) for (let i=0;i<=step;i++) {
+      const xi  = -1 + 2*i/step;
+      const eta = -1 + 2*j/step;
+      const [px, py] = mapQ4(xi, eta);
+      const [u, v]   = interpDispQ4Nat(xi, eta);
+      const mag = Math.hypot(u,v);
+      if (mag < 1e-12) continue;
+      const sx=TX(px), sy=TY(py);
+      const ex=sx+u*arrowScale, ey=sy-v*arrowScale;
+      drawArrow(ctx, sx, sy, ex, ey, cmap(mag/maxMag));
+    }
+  }
 }
 
 function drawSmallArrow(ctx, x1,y1,x2,y2,color) {
@@ -610,7 +784,7 @@ const cv = document.getElementById('main-canvas');
 
 cv.addEventListener('mousedown', function(e) {
   const [mx,my] = getMouseXY(e);
-  for (let i=0;i<3;i++) {
+  for (let i=0;i<cur.length;i++) {
     if (Math.hypot(mx-TX(cur[i][0]), my-TY(cur[i][1])) < 16) {
       dragging = i; cv.style.cursor='grabbing'; return;
     }
@@ -625,7 +799,7 @@ cv.addEventListener('mousemove', function(e) {
     return;
   }
   let over = false;
-  for (let i=0;i<3;i++)
+  for (let i=0;i<cur.length;i++)
     if (Math.hypot(mx-TX(cur[i][0]),my-TY(cur[i][1])) < 16) { over=true; break; }
   cv.style.cursor = over ? 'grab' : 'default';
 });
@@ -642,7 +816,7 @@ cv.addEventListener('touchstart', function(e) {
   e.preventDefault();
   const t = e.touches[0];
   const [mx,my] = getMouseXY(t);
-  for (let i=0;i<3;i++) {
+  for (let i=0;i<cur.length;i++) {
     if (Math.hypot(mx-TX(cur[i][0]),my-TY(cur[i][1])) < 24) {
       dragging=i; return;
     }
@@ -661,6 +835,17 @@ cv.addEventListener('touchend', function() { dragging=-1; });
 // ============================================================
 //  ACTIONS
 // ============================================================
+function setAnalysis(type) {
+  analysisType = type;
+  document.getElementById('btn-ps').className =
+    type==='stress' ? 'btn-active' : 'btn-secondary';
+  document.getElementById('btn-pn').className =
+    type==='strain' ? 'btn-active' : 'btn-secondary';
+  document.getElementById('material-label').textContent =
+    'Material (plane ' + type + ')';
+  recompute(); redraw();
+}
+
 function resetNodes() {
   cur = ORIG.map(n=>[...n]);
   recompute(); redraw();
@@ -676,8 +861,19 @@ function randomDisp() {
 }
 
 function pickType(t) {
-  // Only CST active for now
-  if (t !== 'cst') return;
+  if (t === elementType) return;
+  if (t !== 'cst' && t !== 'q4') return;
+  elementType = t;
+  const base = (t === 'cst') ? ORIG_CST : ORIG_Q4;
+  ORIG = base.map(n => [...n]);
+  cur  = ORIG.map(n => [...n]);
+  // Update tab buttons
+  document.getElementById('tab-cst').className =
+    (t === 'cst') ? 'tab-active' : 'tab-inactive';
+  document.getElementById('tab-q4').className =
+    (t === 'q4')  ? 'tab-active' : 'tab-inactive';
+  updateTypeLabels();
+  recompute(); redraw();
 }
 
 // ============================================================
