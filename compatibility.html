@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inter-Element Compatibility &mdash; CE/ME 532</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa; color: #333;
+  padding: 20px; max-width: 1200px; margin: 0 auto;
+}
+h1 { text-align: center; font-size: 1.35rem; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #666; margin-bottom: 14px; font-size: 0.9rem; }
+h2 {
+  font-size: 1.0rem; margin-bottom: 6px;
+  color: #1f3b7a; border-bottom: 2px solid #dde2ee; padding-bottom: 4px;
+}
+p { font-size: 0.86rem; line-height: 1.5; margin-bottom: 8px; }
+ul { font-size: 0.86rem; margin: 6px 0 6px 22px; }
+li { margin-bottom: 3px; }
+
+.elem-toggle { display: flex; justify-content: center; gap: 6px; margin: 10px 0 16px; flex-wrap: wrap; }
+.elem-toggle button {
+  padding: 8px 18px; border: none; border-radius: 6px;
+  cursor: pointer; font-size: 0.85rem; font-weight: 600;
+}
+.elem-active   { background: #2563eb; color: #fff; }
+.elem-inactive { background: #e5e7eb; color: #333; }
+.elem-inactive:hover { background: #d1d5db; }
+
+.panel {
+  background: #fff; border-radius: 8px; padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  margin-bottom: 14px;
+}
+
+.canvas-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.sub-panel { flex: 1 1 320px; max-width: 560px; display: flex; flex-direction: column; align-items: center; }
+.sub-panel h3 { font-size: 0.82rem; color: #555; margin-bottom: 4px; font-weight: 600; }
+canvas { width: 100%; border: 1px solid #ddd; border-radius: 6px; background: #fafbfc; }
+
+.caption { font-size: 0.8rem; color: #666; font-style: italic; text-align: center; margin-top: 6px; }
+.note {
+  background: #fff8e1; border-left: 3px solid #f4b400;
+  padding: 8px 12px; font-size: 0.82rem; margin-top: 10px; border-radius: 4px;
+}
+.warn {
+  background: #fde8e8; border-left: 3px solid #dc2626;
+  padding: 8px 12px; font-size: 0.82rem; margin-top: 10px; border-radius: 4px;
+}
+.math { font-family: 'Cambria Math', Georgia, serif; font-style: italic; }
+
+.eq-block {
+  background: #f8fafc;
+  border-left: 3px solid #94a3b8;
+  padding: 8px 14px;
+  margin: 6px 0 10px 6px;
+  font-family: 'Cambria Math', Georgia, serif;
+  font-size: 0.90rem;
+  line-height: 1.9;
+  font-style: italic;
+  overflow-x: auto;
+}
+.eq-block .lbl { color: #666; font-style: normal; font-family: 'Segoe UI', sans-serif;
+                 font-size: 0.78rem; margin-right: 6px; display: inline-block; min-width: 110px; }
+.eq-trace { background: #eef2ff; border-left-color: #6366f1; }
+.eq-bad   { background: #fef2f2; border-left-color: #dc2626; }
+
+.back-link {
+  display: inline-block; font-size: 0.82rem; color: #2563eb;
+  text-decoration: none; margin-bottom: 8px;
+}
+.back-link:hover { text-decoration: underline; }
+
+.demo-controls { margin: 6px 0 10px; text-align: center; }
+.demo-controls button {
+  padding: 6px 14px; border: none; border-radius: 5px;
+  background: #e5e7eb; cursor: pointer; font-size: 0.8rem; font-weight: 600;
+}
+.demo-controls button:hover { background: #d1d5db; }
+
+.ref-box {
+  background: #e8f4fd; border-left: 3px solid #2563eb;
+  padding: 8px 12px; font-size: 0.82rem; margin-bottom: 12px; border-radius: 4px;
+}
+</style>
+</head>
+<body>
+
+<a class="back-link" href="index.html">&larr; Back to Tools Index</a>
+
+<h1>Inter-Element Compatibility</h1>
+<p class="subtitle">
+  How shape functions guarantee (or break) matching displacements along a shared edge
+</p>
+
+<div class="panel">
+  <h2>Background</h2>
+  <div class="ref-box">
+    <b>Reference:</b> Lecture Notes &sect;3.4 &mdash; Interpolation
+  </div>
+  <p>For a finite element mesh to represent a continuous displacement field,
+    two adjacent elements must produce <b>identical displacements along their shared edge</b>.
+    This requirement is called <b>inter-element compatibility</b> (or <b>C<sub>0</sub> continuity</b>).</p>
+  <p>Whether compatibility holds depends on whether the displacement along a shared edge
+    is fully determined by the nodes <em>on that edge</em>, or whether it also depends
+    on off-edge nodes that differ between the two neighbors.</p>
+  <ul>
+    <li><b>Q4 (linear):</b> 4 corner nodes, bilinear shape functions. Each edge has
+        <b>2 nodes</b>, so the edge trace is a <b>linear</b> polynomial &mdash;
+        fully determined by its 2 endpoints. <b>Compatible.</b></li>
+    <li><b>Q8 (quadratic serendipity):</b> 4 corners + 4 mid-edge nodes. Each edge has
+        <b>3 nodes</b>, so the edge trace is a <b>quadratic</b> polynomial
+        &mdash; fully determined by 2 corners + 1 mid-edge node. <b>Compatible.</b></li>
+    <li><b>5-node non-standard (<span class="math">{1, x, y, xy, y&sup2;}</span>):</b>
+        4 corners + <b>1 interior node</b>. The shape functions are built by fitting this
+        polynomial basis in <em>global</em> coordinates. On the vertical shared edge
+        <span class="math">x = 0</span>, the trace becomes
+        <span class="math">u(y) = &alpha;<sub>1</sub> + &alpha;<sub>3</sub> y + &alpha;<sub>5</sub> y&sup2;</span>
+        &mdash; a quadratic with <b>3 unknowns</b>, but the edge carries only <b>2 shared nodes</b>.
+        The missing coefficient <span class="math">&alpha;<sub>5</sub></span> is pinned by the
+        <b>off-edge interior node</b>, which differs between the two neighbors.
+        <b>Incompatible &mdash; a gap opens.</b></li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>Element Equations</h2>
+  <p>All three element types are defined on the reference square
+    <span class="math">(&xi;, &eta;) &isin; [&minus;1, 1]&sup2;</span>
+    for the isoparametric cases, and directly in physical
+    <span class="math">(x, y)</span> for the non-standard case.
+    Local corner numbering is counter-clockwise from the bottom-left
+    (1, 2, 3, 4); Q8 adds mid-edge nodes 5, 6, 7, 8 on the bottom, right,
+    top, and left edges respectively.</p>
+
+  <h3 style="font-size: 0.92rem; color: #1f3b7a; margin-top: 10px;">Q4 &mdash; bilinear</h3>
+  <div class="eq-block">
+    <span class="lbl">shape fns:</span>
+    N<sub>i</sub>(&xi;, &eta;) = &frac14; (1 + &xi;<sub>i</sub> &xi;) (1 + &eta;<sub>i</sub> &eta;)
+    <br>
+    <span class="lbl">displacement:</span>
+    u(&xi;, &eta;) = &sum;<sub>i=1</sub><sup>4</sup> N<sub>i</sub> u<sub>i</sub>
+  </div>
+  <p>On the right edge <span class="math">&xi; = +1</span>, the trace reduces to
+    a 1D polynomial in <span class="math">&eta;</span>. Only nodes&nbsp;2 and&nbsp;3
+    (the two corners lying on that edge) contribute:</p>
+  <div class="eq-block eq-trace">
+    <span class="lbl">edge trace:</span>
+    u(&eta;)|<sub>&xi;=+1</sub> = &frac12;(1&minus;&eta;) u<sub>2</sub>
+    + &frac12;(1+&eta;) u<sub>3</sub>
+  </div>
+  <p>Linear in <span class="math">&eta;</span>, fully determined by the 2 shared
+    nodes. <b>Compatible.</b></p>
+
+  <h3 style="font-size: 0.92rem; color: #1f3b7a; margin-top: 10px;">Q8 &mdash; quadratic serendipity</h3>
+  <div class="eq-block">
+    <span class="lbl">corner nodes:</span>
+    N<sub>i</sub> = &frac14; (1 + &xi;<sub>i</sub> &xi;) (1 + &eta;<sub>i</sub> &eta;)
+    (&xi;<sub>i</sub> &xi; + &eta;<sub>i</sub> &eta; &minus; 1)
+    <br>
+    <span class="lbl">&xi;<sub>i</sub> = 0 edges:</span>
+    N<sub>i</sub> = &frac12; (1 &minus; &xi;&sup2;) (1 + &eta;<sub>i</sub> &eta;)
+    <br>
+    <span class="lbl">&eta;<sub>i</sub> = 0 edges:</span>
+    N<sub>i</sub> = &frac12; (1 + &xi;<sub>i</sub> &xi;) (1 &minus; &eta;&sup2;)
+  </div>
+  <p>On the right edge <span class="math">&xi; = +1</span>, only the two
+    corners (nodes&nbsp;2, 3) and the mid-edge node (node&nbsp;6 at
+    <span class="math">&xi; = 1, &eta; = 0</span>) survive:</p>
+  <div class="eq-block eq-trace">
+    <span class="lbl">edge trace:</span>
+    u(&eta;)|<sub>&xi;=+1</sub> = &minus;&frac12; &eta;(1&minus;&eta;) u<sub>2</sub>
+    + &frac12; &eta;(1+&eta;) u<sub>3</sub>
+    + (1 &minus; &eta;&sup2;) u<sub>6</sub>
+  </div>
+  <p>Quadratic in <span class="math">&eta;</span>, fully determined by the
+    3 shared edge nodes. <b>Compatible.</b></p>
+
+  <h3 style="font-size: 0.92rem; color: #dc2626; margin-top: 10px;">Incompatible 5-node element &mdash; global polynomial fit</h3>
+  <p>Instead of natural-coordinate shape functions, the displacement is written
+    as a polynomial in the <b>global</b> coordinates
+    <span class="math">(x, y)</span> using the basis
+    <span class="math">{1, x, y, xy, y&sup2;}</span>, and the 5 unknown
+    coefficients are found by collocation at the 4 corners plus 1 interior node:</p>
+  <div class="eq-block">
+    <span class="lbl">displacement:</span>
+    u(x, y) = &alpha;<sub>1</sub> + &alpha;<sub>2</sub> x + &alpha;<sub>3</sub> y
+    + &alpha;<sub>4</sub> xy + &alpha;<sub>5</sub> y&sup2;
+    <br>
+    <span class="lbl">fit (5&times;5):</span>
+    [1, x<sub>i</sub>, y<sub>i</sub>, x<sub>i</sub> y<sub>i</sub>, y<sub>i</sub>&sup2;] &alpha; = u<sub>i</sub>,
+    &nbsp; i = 1 &hellip; 5
+  </div>
+  <p>On the shared vertical edge <span class="math">x = 0</span>, the
+    <span class="math">x</span> and <span class="math">xy</span> terms drop out,
+    leaving:</p>
+  <div class="eq-block eq-bad">
+    <span class="lbl">edge trace:</span>
+    u(0, y) = &alpha;<sub>1</sub> + &alpha;<sub>3</sub> y + &alpha;<sub>5</sub> y&sup2;
+  </div>
+  <p>This is a <b>quadratic</b> in <span class="math">y</span> with three
+    free coefficients, but the shared edge only carries <b>two</b> nodes
+    (the corners at <span class="math">y = &plusmn;1.5</span>). The two nodal
+    values give only two equations:</p>
+  <div class="eq-block eq-bad">
+    u<sub>1</sub> = &alpha;<sub>1</sub> &minus; 1.5&thinsp;&alpha;<sub>3</sub> + 2.25&thinsp;&alpha;<sub>5</sub>
+    <br>
+    u<sub>2</sub> = &alpha;<sub>1</sub> + 1.5&thinsp;&alpha;<sub>3</sub> + 2.25&thinsp;&alpha;<sub>5</sub>
+  </div>
+  <p>The third equation that pins <span class="math">&alpha;<sub>5</sub></span>
+    comes from the <b>off-edge interior node</b>, which is different for the
+    two neighbors. They therefore fit different parabolas on the same shared
+    edge &mdash; <b>incompatible</b>, a gap opens.</p>
+</div>
+
+<div class="panel">
+  <h2>Interactive Demo</h2>
+  <div class="elem-toggle">
+    <button id="btn-q4"     class="elem-active"   onclick="setElemType('Q4')">Q4 &mdash; 2 nodes/edge</button>
+    <button id="btn-q8"     class="elem-inactive" onclick="setElemType('Q8')">Q8 &mdash; 3 nodes/edge</button>
+    <button id="btn-incomp" class="elem-inactive" onclick="setElemType('INCOMP')">Incompatible &mdash; off-edge node</button>
+  </div>
+  <p>Two axis-aligned rectangles share the vertical edge
+    <span class="math">x = 0</span>. Drag any red node to prescribe a nodal displacement.
+    Shared-edge nodes are in <b style="color:#d97706;">yellow</b>;
+    off-edge interior nodes (Incompatible mode only) are in <b style="color:#7c3aed;">purple</b>.</p>
+  <div class="demo-controls">
+    <button onclick="resetDemo()">Reset</button>
+  </div>
+  <div class="canvas-row">
+    <div class="sub-panel" style="flex: 2 1 560px; max-width: 720px;">
+      <h3>Drag the nodes &mdash; undeformed rectangles are axis-aligned</h3>
+      <canvas id="compat-canvas" width="680" height="360"></canvas>
+    </div>
+    <div class="sub-panel">
+      <h3>Displacement along shared edge</h3>
+      <canvas id="trace-canvas" width="360" height="360"></canvas>
+    </div>
+  </div>
+  <p class="caption">
+    Left: dashed gray = undeformed rectangles; solid blue = left element's
+    deformed edges; solid red = right element's. Yellow markers sit on the
+    shared edge; purple markers are off-edge interior nodes. Right:
+    <span class="math">u(y)</span> and <span class="math">v(y)</span> along
+    the shared edge, evaluated independently from each element. When the left
+    and right traces overlap, the edge is compatible. When they separate, the
+    mesh has a gap.
+  </p>
+  <div class="note">
+    <b>Try it.</b>
+    <ul style="margin-top: 4px;">
+      <li><b>Q4 / Q8:</b> drag a non-shared node &mdash; the trace on the right
+          does not change at all. Drag a yellow shared-edge node &mdash; the
+          trace updates, but the left and right curves still coincide.</li>
+      <li><b>Incompatible:</b> drag a <span style="color:#7c3aed; font-weight:600">purple</span>
+          interior node (13 or 14). That node lies <em>off</em> the shared edge,
+          yet the left element's edge bulges and the right element's edge does not.
+          The trace plot shows a visible gap between the two curves.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Key Takeaway</h2>
+  <p>An element is inter-element compatible <b>if and only if</b> the displacement
+    trace along every edge depends only on the nodes lying on that edge. Standard
+    isoparametric elements (Q4, Q8, Q9, &hellip;) satisfy this automatically because
+    their shape functions, restricted to an edge, reduce to 1D polynomials in the
+    edge nodes alone. Non-standard element formulations &mdash; such as globally
+    fitted polynomials that include terms like
+    <span class="math">y&sup2;</span> or <span class="math">x&sup2;</span> without
+    enough edge nodes to constrain them &mdash; break this property and open gaps
+    between neighbors, even on axis-aligned rectangles.</p>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+ *  GLOBAL STATE
+ *  Indices 0..5  : corners used by Q4
+ *  Indices 6..12 : Q8 mid-edge nodes
+ *  Indices 13,14 : interior nodes used by the Incompatible element
+ * ============================================================ */
+const ORIG_NODES = [
+  [-3.0, -1.5],   //  0  L  corner BL
+  [ 0.0, -1.5],   //  1  shared corner (L-BR = R-BL)   <-- shared edge
+  [ 0.0,  1.5],   //  2  shared corner (L-TR = R-TL)   <-- shared edge
+  [-3.0,  1.5],   //  3  L  corner TL
+  [ 3.0, -1.5],   //  4  R  corner BR
+  [ 3.0,  1.5],   //  5  R  corner TR
+  [-1.5, -1.5],   //  6  L  mid  bottom          (Q8)
+  [ 0.0,  0.0],   //  7  shared mid (L-R = R-L)  (Q8)  <-- shared edge
+  [-1.5,  1.5],   //  8  L  mid  top             (Q8)
+  [-3.0,  0.0],   //  9  L  mid  left            (Q8)
+  [ 1.5, -1.5],   // 10  R  mid  bottom          (Q8)
+  [ 3.0,  0.0],   // 11  R  mid  right           (Q8)
+  [ 1.5,  1.5],   // 12  R  mid  top             (Q8)
+  [-1.5,  0.0],   // 13  L  interior             (INCOMP)  <-- off-edge
+  [ 1.5,  0.0],   // 14  R  interior             (INCOMP)  <-- off-edge
+];
+
+// Element connectivity: corners in CCW order [BL, BR, TR, TL]
+const LEFT_IDX_Q4  = [0, 1, 2, 3];
+const RIGHT_IDX_Q4 = [1, 4, 5, 2];
+// Q8 adds mid-edges in CCW order [m-bottom, m-right, m-top, m-left]
+const LEFT_IDX_Q8  = [0, 1, 2, 3, 6, 7, 8, 9];
+const RIGHT_IDX_Q8 = [1, 4, 5, 2, 10, 11, 12, 7];
+// Incompatible element: 4 corners + 1 interior
+const LEFT_IDX_INCOMP  = [0, 1, 2, 3, 13];
+const RIGHT_IDX_INCOMP = [1, 4, 5, 2, 14];
+
+const SHARED_Q4     = new Set([1, 2]);
+const SHARED_Q8     = new Set([1, 2, 7]);
+const SHARED_INCOMP = new Set([1, 2]);
+const INTERIOR_NODES_INCOMP = new Set([13, 14]);
+
+let elemType = 'Q4';
+let curNodes = ORIG_NODES.map(n => [...n]);
+let dragging = -1;
+
+/* ============================================================
+ *  SHAPE FUNCTIONS  (natural coordinates [-1, 1] x [-1, 1])
+ * ============================================================ */
+function Q4_N(xi, eta) {
+  return [
+    (1 - xi) * (1 - eta) / 4,
+    (1 + xi) * (1 - eta) / 4,
+    (1 + xi) * (1 + eta) / 4,
+    (1 - xi) * (1 + eta) / 4,
+  ];
+}
+function Q8_N(xi, eta) {
+  return [
+    -(1 - xi) * (1 - eta) * (1 + xi + eta) / 4,
+    -(1 + xi) * (1 - eta) * (1 - xi + eta) / 4,
+    -(1 + xi) * (1 + eta) * (1 - xi - eta) / 4,
+    -(1 - xi) * (1 + eta) * (1 + xi - eta) / 4,
+     (1 - xi * xi) * (1 - eta) / 2,
+     (1 + xi) * (1 - eta * eta) / 2,
+     (1 - xi * xi) * (1 + eta) / 2,
+     (1 - xi) * (1 - eta * eta) / 2,
+  ];
+}
+function shapeFns(xi, eta) {
+  return elemType === 'Q4' ? Q4_N(xi, eta) : Q8_N(xi, eta);
+}
+function getLeftIdx() {
+  if (elemType === 'Q4')     return LEFT_IDX_Q4;
+  if (elemType === 'Q8')     return LEFT_IDX_Q8;
+  /* INCOMP */               return LEFT_IDX_INCOMP;
+}
+function getRightIdx() {
+  if (elemType === 'Q4')     return RIGHT_IDX_Q4;
+  if (elemType === 'Q8')     return RIGHT_IDX_Q8;
+  /* INCOMP */               return RIGHT_IDX_INCOMP;
+}
+function getSharedSet() {
+  if (elemType === 'Q4')     return SHARED_Q4;
+  if (elemType === 'Q8')     return SHARED_Q8;
+  /* INCOMP */               return SHARED_INCOMP;
+}
+function getActiveNodes() {
+  const s = new Set(getLeftIdx().concat(getRightIdx()));
+  return Array.from(s).sort((a, b) => a - b);
+}
+
+/* ============================================================
+ *  DISPLACEMENT AT (xi, eta) FOR ISOPARAMETRIC ELEMENTS
+ * ============================================================ */
+function elemUV_iso(idx, xi, eta) {
+  const N = shapeFns(xi, eta);
+  let u = 0, v = 0;
+  for (let i = 0; i < N.length; i++) {
+    const ni = idx[i];
+    u += N[i] * (curNodes[ni][0] - ORIG_NODES[ni][0]);
+    v += N[i] * (curNodes[ni][1] - ORIG_NODES[ni][1]);
+  }
+  return [u, v];
+}
+
+/* ============================================================
+ *  GENERAL NxN GAUSSIAN ELIMINATION
+ * ============================================================ */
+function solveN(A, b) {
+  const n = b.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let i = 0; i < n; i++) {
+    let p = i;
+    for (let j = i + 1; j < n; j++)
+      if (Math.abs(M[j][i]) > Math.abs(M[p][i])) p = j;
+    if (p !== i) { const t = M[i]; M[i] = M[p]; M[p] = t; }
+    if (Math.abs(M[i][i]) < 1e-12) return null;
+    for (let j = i + 1; j < n; j++) {
+      const f = M[j][i] / M[i][i];
+      for (let k = i; k <= n; k++) M[j][k] -= f * M[i][k];
+    }
+  }
+  const x = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = M[i][n];
+    for (let j = i + 1; j < n; j++) s -= M[i][j] * x[j];
+    x[i] = s / M[i][i];
+  }
+  return x;
+}
+
+/* ============================================================
+ *  INCOMPATIBLE ELEMENT  -  global polynomial fit
+ *  Basis  {1, x, y, x*y, y^2}   (5 unknowns, 5 nodes per element)
+ *
+ *  On the vertical shared edge x = 0, the trace reduces to
+ *      u(y) = a1 + a3 y + a5 y^2      (quadratic in y)
+ *  but the edge has only 2 shared nodes, so a5 is pinned by the
+ *  off-edge interior node.  The two neighbors fit different
+ *  polynomials => the edge is incompatible.
+ * ============================================================ */
+function incompBasis(x, y) {
+  return [1, x, y, x * y, y * y];
+}
+function fitIncompPoly(idx) {
+  const M = [];
+  const bU = [], bV = [];
+  for (let i = 0; i < 5; i++) {
+    const ni = idx[i];
+    const [x0, y0] = ORIG_NODES[ni];
+    M.push(incompBasis(x0, y0));
+    bU.push(curNodes[ni][0] - ORIG_NODES[ni][0]);
+    bV.push(curNodes[ni][1] - ORIG_NODES[ni][1]);
+  }
+  const au = solveN(M.map(r => [...r]), bU) || [0, 0, 0, 0, 0];
+  const av = solveN(M.map(r => [...r]), bV) || [0, 0, 0, 0, 0];
+  return { au, av };
+}
+function evalIncomp(coef, x, y) {
+  const b = incompBasis(x, y);
+  let u = 0, v = 0;
+  for (let i = 0; i < 5; i++) { u += coef.au[i] * b[i]; v += coef.av[i] * b[i]; }
+  return [u, v];
+}
+
+/* ============================================================
+ *  SCREEN TRANSFORM FOR THE MAIN CANVAS
+ * ============================================================ */
+const BBOX = { xmn: -3.8, xmx: 3.8, ymn: -2.3, ymx: 2.3 };
+function compatTransform() {
+  const cv = document.getElementById('compat-canvas');
+  const W = cv.width, H = cv.height, pad = 26;
+  const sx = (W - 2 * pad) / (BBOX.xmx - BBOX.xmn);
+  const sy = (H - 2 * pad) / (BBOX.ymx - BBOX.ymn);
+  const sc = Math.min(sx, sy);
+  const off_x = (W - (BBOX.xmx - BBOX.xmn) * sc) / 2;
+  const off_y = (H - (BBOX.ymx - BBOX.ymn) * sc) / 2;
+  const ox = off_x - BBOX.xmn * sc;
+  const oy = H - off_y + BBOX.ymn * sc;
+  return {
+    TX: x => ox + x * sc,
+    TY: y => oy - y * sc,
+    INV_TX: px => (px - ox) / sc,
+    INV_TY: py => (oy - py) / sc,
+  };
+}
+
+/* ============================================================
+ *  DRAW ONE DEFORMED ELEMENT
+ * ============================================================ */
+function drawDeformedElementIso(ctx, T, idx, xr, yr, color) {
+  // Isoparametric (Q4 / Q8) edges sampled in natural coords.
+  const [xmin, xmax] = xr, [ymin, ymax] = yr;
+  const xmid = (xmin + xmax) / 2, ymid = (ymin + ymax) / 2;
+  const hx = (xmax - xmin) / 2, hy = (ymax - ymin) / 2;
+  const STEPS = 40;
+  const edges = [
+    { xi: s =>  s,  eta: () => -1 },
+    { xi: () =>  1, eta: s =>  s  },
+    { xi: s => -s,  eta: () =>  1 },
+    { xi: () => -1, eta: s => -s  },
+  ];
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  for (const ed of edges) {
+    ctx.beginPath();
+    for (let k = 0; k <= STEPS; k++) {
+      const s = -1 + 2 * k / STEPS;
+      const xi = ed.xi(s), eta = ed.eta(s);
+      const [u, v] = elemUV_iso(idx, xi, eta);
+      const px = T.TX(xmid + hx * xi + u);
+      const py = T.TY(ymid + hy * eta + v);
+      if (k === 0) ctx.moveTo(px, py);
+      else         ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawDeformedElementIncomp(ctx, T, idx, xr, yr, color) {
+  // Global polynomial fit; sample edges in physical coords.
+  const [xmin, xmax] = xr, [ymin, ymax] = yr;
+  const STEPS = 40;
+  const coef = fitIncompPoly(idx);
+  const edges = [
+    s => [xmin + (s + 1) * 0.5 * (xmax - xmin), ymin],  // bottom
+    s => [xmax, ymin + (s + 1) * 0.5 * (ymax - ymin)],  // right
+    s => [xmax - (s + 1) * 0.5 * (xmax - xmin), ymax],  // top
+    s => [xmin, ymax - (s + 1) * 0.5 * (ymax - ymin)],  // left
+  ];
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  for (const pt of edges) {
+    ctx.beginPath();
+    for (let k = 0; k <= STEPS; k++) {
+      const s = -1 + 2 * k / STEPS;
+      const [x0, y0] = pt(s);
+      const [u, v] = evalIncomp(coef, x0, y0);
+      const px = T.TX(x0 + u);
+      const py = T.TY(y0 + v);
+      if (k === 0) ctx.moveTo(px, py);
+      else         ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawDeformedElement(ctx, T, idx, xr, yr, color) {
+  if (elemType === 'INCOMP') drawDeformedElementIncomp(ctx, T, idx, xr, yr, color);
+  else                       drawDeformedElementIso   (ctx, T, idx, xr, yr, color);
+}
+
+/* ============================================================
+ *  DRAW MAIN CANVAS
+ * ============================================================ */
+function drawCompat() {
+  const cv = document.getElementById('compat-canvas');
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const T = compatTransform();
+
+  // Axis-aligned undeformed outlines (dashed gray)
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 1.2;
+  for (const rect of [[-3, -1.5, 0, 1.5], [0, -1.5, 3, 1.5]]) {
+    const [xmin, ymin, xmax, ymax] = rect;
+    ctx.beginPath();
+    ctx.moveTo(T.TX(xmin), T.TY(ymin));
+    ctx.lineTo(T.TX(xmax), T.TY(ymin));
+    ctx.lineTo(T.TX(xmax), T.TY(ymax));
+    ctx.lineTo(T.TX(xmin), T.TY(ymax));
+    ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Deformed elements
+  drawDeformedElement(ctx, T, getLeftIdx(),  [-3, 0], [-1.5, 1.5], '#2563eb');
+  drawDeformedElement(ctx, T, getRightIdx(), [ 0, 3], [-1.5, 1.5], '#e74c3c');
+
+  // Undeformed reference markers
+  const active = getActiveNodes();
+  const shared = getSharedSet();
+  ctx.fillStyle = '#bbb';
+  for (const i of active) {
+    ctx.beginPath();
+    ctx.arc(T.TX(ORIG_NODES[i][0]), T.TY(ORIG_NODES[i][1]), 3, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+
+  // Current (draggable) markers
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const i of active) {
+    const sx = T.TX(curNodes[i][0]);
+    const sy = T.TY(curNodes[i][1]);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 11, 0, 2 * Math.PI);
+    if (shared.has(i)) {
+      ctx.fillStyle = (i === dragging) ? '#b45309' : '#f59e0b';   // yellow shared
+    } else if (INTERIOR_NODES_INCOMP.has(i)) {
+      ctx.fillStyle = (i === dragging) ? '#5b21b6' : '#7c3aed';   // purple interior
+    } else {
+      ctx.fillStyle = (i === dragging) ? '#991b1b' : '#e11';      // red regular
+    }
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(String(i), sx, sy);
+  }
+
+  // Legend
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#2563eb'; ctx.fillText('\u2501 left element',              10, 10);
+  ctx.fillStyle = '#e74c3c'; ctx.fillText('\u2501 right element',             10, 24);
+  ctx.fillStyle = '#888';    ctx.fillText('\u2504 undeformed (axis-aligned)', 10, 38);
+  ctx.fillStyle = '#f59e0b'; ctx.fillText('\u25CF shared-edge node',          10, 52);
+  if (elemType === 'INCOMP') {
+    ctx.fillStyle = '#7c3aed'; ctx.fillText('\u25CF off-edge interior node',  10, 66);
+  }
+}
+
+/* ============================================================
+ *  TRACE SAMPLER (shared edge, left side vs right side)
+ * ============================================================ */
+function sampleTrace(N) {
+  const uL = [], vL = [], uR = [], vR = [];
+  if (elemType === 'INCOMP') {
+    const coefL = fitIncompPoly(getLeftIdx());
+    const coefR = fitIncompPoly(getRightIdx());
+    for (let k = 0; k <= N; k++) {
+      const y = -1.5 + 3 * k / N;
+      const [ul, vl] = evalIncomp(coefL, 0, y);
+      const [ur, vr] = evalIncomp(coefR, 0, y);
+      uL.push(ul); vL.push(vl); uR.push(ur); vR.push(vr);
+    }
+  } else {
+    for (let k = 0; k <= N; k++) {
+      const t = -1 + 2 * k / N;
+      const [ul, vl] = elemUV_iso(getLeftIdx(),  +1, t);
+      const [ur, vr] = elemUV_iso(getRightIdx(), -1, t);
+      uL.push(ul); vL.push(vl); uR.push(ur); vR.push(vr);
+    }
+  }
+  return { uL, vL, uR, vR };
+}
+
+/* ============================================================
+ *  DRAW TRACE CANVAS
+ * ============================================================ */
+function drawTrace() {
+  const cv = document.getElementById('trace-canvas');
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  const N = 80;
+  const { uL, vL, uR, vR } = sampleTrace(N);
+  const all = uL.concat(uR, vL, vR);
+  let vmin = Math.min(...all), vmax = Math.max(...all);
+  if (vmax - vmin < 0.02) { const m = (vmin + vmax) / 2; vmin = m - 0.1; vmax = m + 0.1; }
+  const margin = (vmax - vmin) * 0.2;
+  vmin -= margin; vmax += margin;
+
+  const W = cv.width, H = cv.height;
+  const padL = 48, padR = 14, padT = 44, padB = 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const X = t => padL + t * plotW;
+  const Y = v => padT + (1 - (v - vmin) / (vmax - vmin)) * plotH;
+
+  // Plot frame
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+  ctx.strokeRect(padL, padT, plotW, plotH);
+  if (vmin < 0 && vmax > 0) {
+    const y0 = Y(0);
+    ctx.strokeStyle = '#e3e3e3';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(padL, y0); ctx.lineTo(padL + plotW, y0); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Axis labels
+  ctx.fillStyle = '#666'; ctx.font = '10px sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(vmax.toFixed(3), padL - 4, padT);
+  ctx.fillText(vmin.toFixed(3), padL - 4, padT + plotH);
+  if (vmin < 0 && vmax > 0) ctx.fillText('0.000', padL - 4, Y(0));
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('y = -1.5', padL + 20,         padT + plotH + 4);
+  ctx.fillText('y = +1.5', padL + plotW - 20, padT + plotH + 4);
+
+  function plot(arr, color, dashed) {
+    ctx.beginPath();
+    for (let k = 0; k <= N; k++) {
+      const x = X(k / N), y = Y(arr[k]);
+      if (k === 0) ctx.moveTo(x, y);
+      else         ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash(dashed ? [5, 4] : []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  plot(uL, '#2563eb', false);
+  plot(uR, '#2563eb', true);
+  plot(vL, '#e67e22', false);
+  plot(vR, '#e67e22', true);
+
+  // Legend
+  ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#2563eb'; ctx.fillText('u   (L = solid, R = dashed)', padL + 4, padT + 4);
+  ctx.fillStyle = '#e67e22'; ctx.fillText('v   (L = solid, R = dashed)', padL + 4, padT + 18);
+
+  // Title
+  ctx.fillStyle = '#555'; ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('u(y), v(y) along shared edge x = 0', W / 2, 8);
+  ctx.fillStyle = '#888'; ctx.font = '10px sans-serif';
+  const subtitle =
+    elemType === 'Q4'     ? 'Q4: linear in y  (compatible)'     :
+    elemType === 'Q8'     ? 'Q8: quadratic in y  (compatible)'  :
+                            'Incompatible: quadratic in y, off-edge dependence';
+  ctx.fillText(subtitle, W / 2, 24);
+}
+
+/* ============================================================
+ *  INTERACTION
+ * ============================================================ */
+function getMouseXY(cv, e) {
+  const r = cv.getBoundingClientRect();
+  const sx = cv.width / r.width, sy = cv.height / r.height;
+  return [(e.clientX - r.left) * sx, (e.clientY - r.top) * sy];
+}
+
+(function attach() {
+  const cv = document.getElementById('compat-canvas');
+
+  cv.addEventListener('mousedown', e => {
+    const [mx, my] = getMouseXY(cv, e);
+    const T = compatTransform();
+    for (const i of getActiveNodes()) {
+      const sx = T.TX(curNodes[i][0]), sy = T.TY(curNodes[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 14) {
+        dragging = i;
+        cv.style.cursor = 'grabbing';
+        drawCompat();
+        return;
+      }
+    }
+  });
+  cv.addEventListener('mousemove', e => {
+    const [mx, my] = getMouseXY(cv, e);
+    const T = compatTransform();
+    if (dragging >= 0) {
+      curNodes[dragging] = [T.INV_TX(mx), T.INV_TY(my)];
+      drawCompat();
+      drawTrace();
+      return;
+    }
+    let over = false;
+    for (const i of getActiveNodes()) {
+      const sx = T.TX(curNodes[i][0]), sy = T.TY(curNodes[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 14) { over = true; break; }
+    }
+    cv.style.cursor = over ? 'grab' : 'default';
+  });
+  cv.addEventListener('mouseup', () => {
+    if (dragging >= 0) { dragging = -1; cv.style.cursor = 'default'; drawCompat(); }
+  });
+  cv.addEventListener('mouseleave', () => {
+    if (dragging >= 0) { dragging = -1; cv.style.cursor = 'default'; drawCompat(); }
+  });
+
+  cv.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const [mx, my] = getMouseXY(cv, t);
+    const T = compatTransform();
+    for (const i of getActiveNodes()) {
+      const sx = T.TX(curNodes[i][0]), sy = T.TY(curNodes[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 22) { dragging = i; drawCompat(); return; }
+    }
+  }, { passive: false });
+  cv.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (dragging < 0) return;
+    const t = e.touches[0];
+    const [mx, my] = getMouseXY(cv, t);
+    const T = compatTransform();
+    curNodes[dragging] = [T.INV_TX(mx), T.INV_TY(my)];
+    drawCompat();
+    drawTrace();
+  }, { passive: false });
+  cv.addEventListener('touchend', () => { dragging = -1; drawCompat(); });
+})();
+
+/* ============================================================
+ *  TOGGLES
+ * ============================================================ */
+function setElemType(type) {
+  elemType = type;
+  document.getElementById('btn-q4').className     = (type === 'Q4')     ? 'elem-active' : 'elem-inactive';
+  document.getElementById('btn-q8').className     = (type === 'Q8')     ? 'elem-active' : 'elem-inactive';
+  document.getElementById('btn-incomp').className = (type === 'INCOMP') ? 'elem-active' : 'elem-inactive';
+  drawCompat();
+  drawTrace();
+}
+
+function resetDemo() {
+  curNodes = ORIG_NODES.map(n => [...n]);
+  drawCompat();
+  drawTrace();
+}
+
+/* ============================================================
+ *  INIT
+ * ============================================================ */
+// Small initial displacement so the demo is not flat on first load.
+curNodes[1]  = [ 0.20, -1.25];
+curNodes[2]  = [-0.15,  1.30];
+curNodes[7]  = [ 0.35,  0.05];
+curNodes[0]  = [-3.15, -1.65];
+curNodes[5]  = [ 3.20,  1.65];
+curNodes[13] = [-1.10,  0.00];   // visible only in INCOMP mode
+curNodes[14] = [ 1.50,  0.25];   // visible only in INCOMP mode
+drawCompat();
+drawTrace();
+</script>
+</body>
+</html>

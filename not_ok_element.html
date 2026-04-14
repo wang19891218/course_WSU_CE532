@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why this Q4 field is NOT OK — CE/ME 532</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa; color: #333;
+  padding: 20px; max-width: 1200px; margin: 0 auto;
+}
+h1 { text-align: center; font-size: 1.35rem; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #666; margin-bottom: 14px; font-size: 0.9rem; }
+h2 {
+  font-size: 1.0rem; margin-bottom: 6px;
+  color: #1f3b7a; border-bottom: 2px solid #dde2ee; padding-bottom: 4px;
+}
+p { font-size: 0.86rem; line-height: 1.5; margin-bottom: 8px; }
+
+.panel {
+  background: #fff; border-radius: 8px; padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  margin-bottom: 14px;
+}
+
+.canvas-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.sub-panel { flex: 1 1 320px; max-width: 520px; display: flex; flex-direction: column; align-items: center; }
+.sub-panel h3 { font-size: 0.82rem; color: #555; margin-bottom: 4px; font-weight: 600; }
+canvas { width: 100%; border: 1px solid #ddd; border-radius: 6px; background: #fafbfc; }
+
+.caption { font-size: 0.8rem; color: #666; font-style: italic; text-align: center; margin-top: 6px; }
+.note {
+  background: #fff8e1; border-left: 3px solid #f4b400;
+  padding: 8px 12px; font-size: 0.82rem; margin-top: 10px; border-radius: 4px;
+}
+.math { font-family: 'Cambria Math', Georgia, serif; font-style: italic; }
+
+.back-link {
+  display: inline-block; font-size: 0.82rem; color: #2563eb;
+  text-decoration: none; margin-bottom: 8px;
+}
+.back-link:hover { text-decoration: underline; }
+
+.alpha-panel {
+  width: 100%; margin-top: 8px;
+  background: #f8f9fb; border: 1px solid #e3e6ee; border-radius: 5px;
+  padding: 6px 10px;
+  font-family: 'Courier New', monospace; font-size: 0.74rem;
+  color: #333; line-height: 1.55;
+}
+.alpha-panel .alpha-line { white-space: nowrap; overflow-x: auto; }
+.alpha-panel .alpha-tag {
+  display: inline-block; min-width: 32px; color: #1f3b7a; font-weight: 700;
+}
+</style>
+</head>
+<body>
+
+<a class="back-link" href="element_properties.html">&larr; Back to Element Explorer</a>
+
+<h1>Why this Q4 displacement field is NOT OK</h1>
+<p class="subtitle">
+  <span class="math">u = &alpha;<sub>1</sub> + &alpha;<sub>2</sub> x + &alpha;<sub>3</sub> y + &alpha;<sub>4</sub> x&sup2;</span><br>
+  <span class="math">v = &alpha;<sub>5</sub> + &alpha;<sub>6</sub> x + &alpha;<sub>7</sub> y + &alpha;<sub>8</sub> y&sup2;</span>
+</p>
+
+<div class="panel">
+  <h2>Not Geometrically Isotropic</h2>
+  <p>A valid element must produce the <b>same physical behavior regardless of orientation</b>.
+    This is called <b>geometric isotropy</b>: rotating the element should simply rotate the result &mdash;
+    not change it. Terms in <span class="math">u</span> and <span class="math">v</span> must be
+    <i>symmetric about Pascal&rsquo;s triangle</i> (complete rows).</p>
+  <p>The bad polynomial puts <span class="math">x&sup2;</span> in <span class="math">u</span> and
+    <span class="math">y&sup2;</span> in <span class="math">v</span>.
+    Under a 45&deg; rotation, <span class="math">x&sup2;</span> maps to
+    <span class="math">(x&minus;y)&sup2;/2 = x&sup2;/2 &minus; xy + y&sup2;/2</span> &mdash;
+    a mix of three different monomials.
+    The basis is <em>completely different</em> after rotation, so the element cannot be geometrically
+    isotropic.</p>
+  <p>The two panels show the <b>same element</b>: axis-aligned (left) and rotated 45&deg; (right).
+    The nodal loads are the <b>same physical displacement</b> &mdash; the vectors on the right are the
+    left-panel vectors rotated 45&deg; to match the new orientation.
+    <b>Drag nodes</b> on the left canvas; watch how the &alpha; coefficients on the right
+    are <em>not</em> a simple rotation of the left &mdash; the field changes, not just its frame.</p>
+  <div class="compat-controls">
+    <button onclick="resetIso()">Reset</button>
+  </div>
+  <div class="canvas-row">
+    <div class="sub-panel">
+      <h3>Bad polynomial &mdash; axis-aligned &nbsp;
+        <span class="math">u = &hellip;+&alpha;<sub>4</sub>x&sup2;</span>,&nbsp;
+        <span class="math">v = &hellip;+&alpha;<sub>8</sub>y&sup2;</span></h3>
+      <canvas id="iso-bad" width="440" height="340"></canvas>
+      <div class="alpha-panel">
+        <div class="alpha-line"><span class="alpha-tag">u =</span><span id="alpha-bad-u">&mdash;</span></div>
+        <div class="alpha-line"><span class="alpha-tag">v =</span><span id="alpha-bad-v">&mdash;</span></div>
+      </div>
+    </div>
+    <div class="sub-panel">
+      <h3>Bad polynomial &mdash; rotated 45&deg; &nbsp;
+        <span class="math">u = &hellip;+&alpha;<sub>4</sub>x&sup2;</span>,&nbsp;
+        <span class="math">v = &hellip;+&alpha;<sub>8</sub>y&sup2;</span></h3>
+      <canvas id="iso-rot" width="440" height="340"></canvas>
+      <div class="alpha-panel">
+        <div class="alpha-line"><span class="alpha-tag">u =</span><span id="alpha-rot-u">&mdash;</span></div>
+        <div class="alpha-line"><span class="alpha-tag">v =</span><span id="alpha-rot-v">&mdash;</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">
+    Color = |d(x,y)| from the fitted bad polynomial, same color scale on both panels.
+    If the polynomial were geometrically isotropic the right contour would be the left contour rotated 45&deg;.
+    Instead the contour shapes differ and the &alpha; coefficients are unrelated by rotation &mdash;
+    the <span class="math">x&sup2;</span>/<span class="math">y&sup2;</span> basis breaks geometric isotropy.
+  </p>
+  <div class="note">
+    <b>Why a slightly skewed element?</b>
+    On a true axis-aligned rectangle the four nodal <span class="math">x</span>-coordinates take only two
+    distinct values, so the <span class="math">x&sup2;</span> column in the fit matrix is linearly dependent
+    on the <span class="math">x</span> column.
+    The system is rank-deficient and the polynomial cannot be uniquely fit to the 4 nodal values.
+    A slight skew (corners offset by 0.1) breaks this degeneracy so dragging one node moves only that node,
+    keeping the geometric-isotropy failure as the only phenomenon on display.
+    (The same rank deficiency is why Demo 2 below uses rotated squares.)
+  </div>
+</div>
+
+<!-- ================================================= GOOD POLY -->
+<div class="panel">
+  <h2>Contrast &mdash; Good Polynomial Is Rotation-Invariant (Isoparametric)</h2>
+  <p>The good polynomial is the <b>isoparametric</b> bilinear element:
+    displacement is interpolated as
+    <span class="math">u = &sum; N<sub>i</sub>(&xi;,&eta;) u<sub>i</sub></span>
+    where the shape functions <span class="math">N<sub>i</sub></span> live in
+    <em>natural coordinates</em> (&xi;,&nbsp;&eta;), not in global
+    <span class="math">x,y</span>.
+    The natural-coordinate polynomial
+    <span class="math">1,&nbsp;&xi;,&nbsp;&eta;,&nbsp;&xi;&eta;</span>
+    has <b>no knowledge of the element&rsquo;s orientation</b> in global space.</p>
+  <p>When the element is rotated 45&deg;, the nodal displacements are projected
+    onto the new local axes, so the individual &alpha; coefficients change.
+    But the magnitude
+    <span class="math">|d(&xi;,&eta;)| = &radic;(u&sup2;+v&sup2;)</span>
+    is <b>preserved at every natural point</b> &mdash; rotating a vector does not change its
+    length.
+    The right contour is therefore the left contour rotated 45&deg;.</p>
+  <p>The bad polynomial (Failure 1) is written in <em>global</em>
+    <span class="math">x,y</span>: when the element rotates,
+    <span class="math">x&sup2;</span> and <span class="math">y&sup2;</span> genuinely change
+    &mdash; the contour is not just rotated but has a different shape entirely.</p>
+  <p><b>Drag nodes</b> on the left canvas; the right panel shows the same element rotated 45&deg;
+    with the equivalent local-frame load.</p>
+  <div class="compat-controls">
+    <button onclick="resetGood()">Reset</button>
+  </div>
+  <div class="canvas-row">
+    <div class="sub-panel">
+      <h3>Isoparametric &mdash; axis-aligned &nbsp;
+        <span class="math">u = &sum; N<sub>i</sub>(&xi;,&eta;)\,u<sub>i</sub></span></h3>
+      <canvas id="iso-good-aligned" width="440" height="340"></canvas>
+      <div class="alpha-panel">
+        <div class="alpha-line"><span class="alpha-tag">u =</span><span id="alpha-good-u">&mdash;</span></div>
+        <div class="alpha-line"><span class="alpha-tag">v =</span><span id="alpha-good-v">&mdash;</span></div>
+      </div>
+    </div>
+    <div class="sub-panel">
+      <h3>Isoparametric &mdash; rotated 45&deg; &nbsp;
+        (same <span class="math">N<sub>i</sub>(&xi;,&eta;)</span>, local load)</h3>
+      <canvas id="iso-good-rot" width="440" height="340"></canvas>
+      <div class="alpha-panel">
+        <div class="alpha-line"><span class="alpha-tag">u =</span><span id="alpha-good-rot-u">&mdash;</span></div>
+        <div class="alpha-line"><span class="alpha-tag">v =</span><span id="alpha-good-rot-v">&mdash;</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">
+    Coefficients shown in natural-coordinate form
+    <span class="math">&alpha;<sub>1</sub> + &alpha;<sub>2</sub>&xi; + &alpha;<sub>3</sub>&eta; + &alpha;<sub>4</sub>&xi;&eta;</span>.
+    The &alpha; values differ between panels (the load direction rotated), but
+    <span class="math">|d(&xi;,&eta;)|</span> is identical &mdash; compare the two contours.
+  </p>
+</div>
+
+<div class="panel">
+  <h2>Related Topic: Inter-Element Compatibility</h2>
+  <p>Another requirement for valid finite elements is <b>inter-element compatibility</b>:
+    adjacent elements must produce matching displacements along shared edges.</p>
+  <p>The <span class="math">x&sup2;/y&sup2;</span> polynomial basis also fails this requirement
+    for non-axis-aligned elements.</p>
+  <p><a href="compatibility.html" style="color: #2563eb; font-weight: 600;">
+    &rarr; See the Inter-Element Compatibility demo</a></p>
+</div>
+
+<script>
+/* ============================================================
+ *  LINEAR SOLVE (4x4, partial pivoting)
+ * ============================================================ */
+function solve4(M, b) {
+  const A = M.map((row, i) => [...row, b[i]]);
+  for (let i = 0; i < 4; i++) {
+    let p = i;
+    for (let j = i+1; j < 4; j++)
+      if (Math.abs(A[j][i]) > Math.abs(A[p][i])) p = j;
+    if (p !== i) { const t = A[i]; A[i] = A[p]; A[p] = t; }
+    if (Math.abs(A[i][i]) < 1e-12) return null;
+    for (let j = i+1; j < 4; j++) {
+      const f = A[j][i] / A[i][i];
+      for (let k = i; k <= 4; k++) A[j][k] -= f * A[i][k];
+    }
+  }
+  const x = new Array(4);
+  for (let i = 3; i >= 0; i--) {
+    let s = A[i][4];
+    for (let j = i+1; j < 4; j++) s -= A[i][j] * x[j];
+    x[i] = s / A[i][i];
+  }
+  return x;
+}
+
+/* ============================================================
+ *  TIKHONOV LEAST-SQUARES  (fallback when solve4 is singular)
+ * ============================================================ */
+function solveLS4(M, b, eps) {
+  eps = eps || 1e-10;
+  const MtM = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  const Mtb = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      let s = 0;
+      for (let k = 0; k < 4; k++) s += M[k][i] * M[k][j];
+      MtM[i][j] = s;
+    }
+    MtM[i][i] += eps;
+    let s = 0;
+    for (let k = 0; k < 4; k++) s += M[k][i] * b[k];
+    Mtb[i] = s;
+  }
+  return solve4(MtM, Mtb) || [0, 0, 0, 0];
+}
+
+/* ============================================================
+ *  POLYNOMIAL FIT / EVAL
+ * ============================================================ */
+function buildM(nodes, type, comp) {
+  return nodes.map(([x, y]) => {
+    if (type === 'good') return [1, x, y, x*y];
+    if (comp === 'u')    return [1, x, y, x*x];
+    return [1, x, y, y*y];
+  });
+}
+function fitPoly(nodes, vals, type, comp) {
+  const M = buildM(nodes, type, comp);
+  const direct = solve4(M, vals);
+  if (direct) return direct;
+  return solveLS4(M, vals, 1e-8);
+}
+function evalPoly(a, x, y, type, comp) {
+  if (!a) return 0;
+  if (type === 'good') return a[0] + a[1]*x + a[2]*y + a[3]*x*y;
+  if (comp === 'u')    return a[0] + a[1]*x + a[2]*y + a[3]*x*x;
+  return                      a[0] + a[1]*x + a[2]*y + a[3]*y*y;
+}
+
+/* ============================================================
+ *  GEOMETRY UTILS
+ * ============================================================ */
+function pointInQuad(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if (((yi > py) !== (yj > py)) &&
+        (px < (xj - xi) * (py - yi) / (yj - yi) + xi))
+      inside = !inside;
+  }
+  return inside;
+}
+function centroid(poly) {
+  let cx = 0, cy = 0;
+  for (const [x, y] of poly) { cx += x; cy += y; }
+  return [cx / poly.length, cy / poly.length];
+}
+function rotate90(pts, cx, cy) {
+  return pts.map(([x, y]) => [cx - (y - cy), cy + (x - cx)]);
+}
+
+/* ============================================================
+ *  COLORMAP
+ * ============================================================ */
+function cmap(t) {
+  t = Math.max(0, Math.min(1, t));
+  let r, g, b;
+  if      (t < 0.25) { const s = t/0.25;        r = 0;         g = ~~(255*s);     b = 255; }
+  else if (t < 0.5)  { const s = (t-0.25)/0.25; r = 0;         g = 255;           b = ~~(255*(1-s)); }
+  else if (t < 0.75) { const s = (t-0.5)/0.25;  r = ~~(255*s); g = 255;           b = 0; }
+  else               { const s = (t-0.75)/0.25; r = 255;       g = ~~(255*(1-s)); b = 0; }
+  return `rgb(${r},${g},${b})`;
+}
+
+/* ============================================================
+ *  SCREEN TRANSFORM
+ * ============================================================ */
+function makeTransform(canvas, xmn, xmx, ymn, ymx, pad = 24) {
+  const W = canvas.width, H = canvas.height;
+  const sx = (W - 2*pad) / (xmx - xmn);
+  const sy = (H - 2*pad) / (ymx - ymn);
+  const sc = Math.min(sx, sy);
+  const off_x = (W - (xmx - xmn) * sc) / 2;
+  const off_y = (H - (ymx - ymn) * sc) / 2;
+  const ox = off_x - xmn * sc;
+  const oy = H - off_y + ymn * sc;
+  return {
+    TX: x => ox + x * sc,
+    TY: y => oy - y * sc,
+    INV_TX: px => (px - ox) / sc,
+    INV_TY: py => (oy - py) / sc,
+    scale: sc,
+  };
+}
+
+/* ============================================================
+ *  ARROW
+ * ============================================================ */
+function drawArrow(ctx, x1, y1, x2, y2, color, lw) {
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke();
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  const h = 8;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - h*Math.cos(a - 0.4), y2 - h*Math.sin(a - 0.4));
+  ctx.lineTo(x2 - h*Math.cos(a + 0.4), y2 - h*Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+}
+
+/* ============================================================
+ *  DEMO 1 — GEOMETRIC ISOTROPY FAILURE
+ *
+ *  The same element is shown twice: axis-aligned (left) and
+ *  rotated 45° about its centroid (right).  The nodal loads on
+ *  the right are the left-panel loads rotated 45° — same physical
+ *  loading, different orientation.
+ *
+ *  If the bad polynomial were geometrically isotropic the right
+ *  contour would be the left contour rotated 45°.  It is not:
+ *  under a 45° rotation x² maps to (x−y)²/2, which mixes x², xy,
+ *  and y² — a completely different basis.  The α readouts confirm
+ *  the coefficients are unrelated by any rotation.
+ *
+ *  Dragging is enabled only on the left (axis-aligned) canvas.
+ *  The right canvas reacts automatically with the equivalent
+ *  rotated load and the same bad polynomial fit.
+ * ============================================================ */
+// Slightly-skewed Q4 — all four x and all four y values distinct,
+// so the bad-polynomial fit is well-conditioned and dragging one
+// node only moves that node.
+const ORIG_ISO_A = [
+  [ 0.00,  0.00],
+  [ 2.00,  0.10],
+  [ 2.10,  2.00],
+  [ 0.10,  1.90],
+];
+// Initial deformed positions = undeformed (zero displacement).
+const INIT_ISO_A = ORIG_ISO_A.map(n => [...n]);
+let curIsoA = INIT_ISO_A.map(n => [...n]);
+
+function getIsoUA() { return curIsoA.map((n, i) => n[0] - ORIG_ISO_A[i][0]); }
+function getIsoVA() { return curIsoA.map((n, i) => n[1] - ORIG_ISO_A[i][1]); }
+
+// Fixed display bbox shared by both canvases.
+const ISO_BBOX = { xmn: -1.0, xmx: 3.2, ymn: -1.0, ymx: 3.0 };
+
+// --- Rotation constants (45°) ---
+const ROT45_C = Math.cos(Math.PI / 4);
+const ROT45_S = Math.sin(Math.PI / 4);
+// Centroid of the element (used as rotation pivot).
+const ISO_CX = ORIG_ISO_A.reduce((s, n) => s + n[0], 0) / 4;
+const ISO_CY = ORIG_ISO_A.reduce((s, n) => s + n[1], 0) / 4;
+// Element nodes rotated 45° about the centroid (used for bad-poly demo).
+const ORIG_ISO_ROT = ORIG_ISO_A.map(function([x, y]) {
+  const dx = x - ISO_CX, dy = y - ISO_CY;
+  return [
+    ISO_CX + dx * ROT45_C - dy * ROT45_S,
+    ISO_CY + dx * ROT45_S + dy * ROT45_C,
+  ];
+});
+
+
+/* ============================================================
+ *  α-READOUT FORMATTING
+ * ============================================================ */
+function fmtPoly(a, type, comp) {
+  if (!a) return '—';
+  const monomials = (type === 'good')
+    ? ['', ' x',  ' y',  ' xy']
+    : (comp === 'u'
+        ? ['', ' x',  ' y',  ' x²']
+        : ['', ' x',  ' y',  ' y²']);
+  let s = '';
+  for (let i = 0; i < 4; i++) {
+    const v = a[i];
+    const abs = Math.abs(v).toFixed(3);
+    if (i === 0) s += (v < 0 ? '−' : ' ') + abs;
+    else         s += '  ' + (v < 0 ? '−' : '+') + ' ' + abs + monomials[i];
+  }
+  return s;
+}
+function updateAlphaPanels(auBad, avBad, auRot, avRot) {
+  document.getElementById('alpha-bad-u').innerText = fmtPoly(auBad, 'bad', 'u');
+  document.getElementById('alpha-bad-v').innerText = fmtPoly(avBad, 'bad', 'v');
+  document.getElementById('alpha-rot-u').innerText = fmtPoly(auRot, 'bad', 'u');
+  document.getElementById('alpha-rot-v').innerText = fmtPoly(avRot, 'bad', 'v');
+}
+
+let draggingIso = -1;
+
+/* ============================================================
+ *  UNIFIED CANVAS RENDERER
+ *
+ *  Both the bad-polynomial and good-polynomial demos call this
+ *  single function.  The only difference between them is evalFn:
+ *
+ *    Bad poly:  evalFn(xi,eta) → forward-map to (x,y), then
+ *               evalPoly(au, x,y,'bad','u/v')
+ *    Good poly: evalFn(xi,eta) → isoEval(uVals, isoN(xi,eta))
+ *
+ *  The contour is rendered as NI×NI natural-coordinate cells,
+ *  each split into two screen triangles — no gaps, even on a
+ *  rotated element.  The deformed outline is traced along the
+ *  four element edges in natural coordinates.
+ * ============================================================ */
+function drawQuad(canvasId, nodes, curNodes, evalFn,
+                  bbox, vmax, title, draggingIdx) {
+  const cv  = document.getElementById(canvasId);
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const T = makeTransform(cv, bbox.xmn, bbox.xmx, bbox.ymn, bbox.ymx, 24);
+
+  // Contour: scan a NI×NI natural-coord grid, forward-map to screen,
+  // fill a small rect at each point.  fillRect is ~10× faster than
+  // path-fill triangles, keeping interaction real-time.
+  const NI = 64;
+  const D = Math.ceil(cv.width / NI / 2) + 1;  // dot half-size (px)
+  for (let j = 0; j <= NI; j++) {
+    for (let i = 0; i <= NI; i++) {
+      const xi = -1+2*i/NI, eta = -1+2*j/NI;
+      const [gx,gy] = isoFwd(nodes, xi, eta);
+      const [u,v]   = evalFn(xi, eta);
+      ctx.fillStyle = cmap(Math.hypot(u,v)/vmax);
+      ctx.fillRect(T.TX(gx)-D, T.TY(gy)-D, 2*D, 2*D);
+    }
+  }
+
+  // Undeformed outline (dashed gray)
+  ctx.setLineDash([6,4]); ctx.strokeStyle='#aaa'; ctx.lineWidth=1.2;
+  ctx.beginPath();
+  ctx.moveTo(T.TX(nodes[0][0]),T.TY(nodes[0][1]));
+  for (let i=1; i<4; i++) ctx.lineTo(T.TX(nodes[i][0]),T.TY(nodes[i][1]));
+  ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+
+  // Deformed outline traced in natural coords
+  const NE = 40;
+  const edgeFns = [
+    t => [-1+2*t,-1], t => [1,-1+2*t],
+    t => [1-2*t, 1],  t => [-1,1-2*t],
+  ];
+  ctx.beginPath();
+  let first = true;
+  for (const eFn of edgeFns) {
+    for (let k=0; k<=NE; k++) {
+      const [xi,eta] = eFn(k/NE);
+      const [gx,gy]  = isoFwd(nodes,xi,eta);
+      const [u,v]    = evalFn(xi,eta);
+      if (first) { ctx.moveTo(T.TX(gx+u),T.TY(gy+v)); first=false; }
+      else        ctx.lineTo(T.TX(gx+u),T.TY(gy+v));
+    }
+  }
+  ctx.strokeStyle='#1f3b7a'; ctx.lineWidth=2; ctx.stroke();
+
+  // Undeformed node dots
+  for (let i=0; i<4; i++) {
+    ctx.beginPath();
+    ctx.arc(T.TX(nodes[i][0]),T.TY(nodes[i][1]),3,0,2*Math.PI);
+    ctx.fillStyle='#aaa'; ctx.fill();
+  }
+
+  // Deformed node markers
+  for (let i=0; i<4; i++) {
+    const sx=T.TX(curNodes[i][0]), sy=T.TY(curNodes[i][1]);
+    ctx.beginPath(); ctx.arc(sx,sy,11,0,2*Math.PI);
+    ctx.fillStyle=(i===draggingIdx)?'#991b1b':'#e11';
+    ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i+1,sx,sy);
+  }
+
+  // Colorbar
+  const cbx=cv.width-78, cby=14, cbw=64, cbh=8;
+  for (let i=0; i<cbw; i++) {
+    ctx.fillStyle=cmap(i/cbw); ctx.fillRect(cbx+i,cby,1,cbh);
+  }
+  ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(cbx,cby,cbw,cbh);
+  ctx.fillStyle='#555'; ctx.font='9px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillText('|d|',cbx+cbw/2,cby-1);
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('0',cbx,cby+cbh+2);
+  ctx.textAlign='right';
+  ctx.fillText(vmax.toFixed(2),cbx+cbw,cby+cbh+2);
+
+  // Title
+  ctx.fillStyle='#444'; ctx.font='11px sans-serif';
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(title,8,8);
+}
+
+// Sample the natural-coord grid to find the maximum |d|.
+function computeVmax(evalFn) {
+  let vmax = 0;
+  const NI = 20;
+  for (let j=0; j<=NI; j++) for (let i=0; i<=NI; i++) {
+    const [u,v] = evalFn(-1+2*i/NI, -1+2*j/NI);
+    vmax = Math.max(vmax, Math.hypot(u,v));
+  }
+  return vmax;
+}
+
+function redrawIso() {
+  const uA = getIsoUA(), vA = getIsoVA();
+
+  // Axis-aligned: fit bad polynomial in global (x,y).
+  const auBad = fitPoly(ORIG_ISO_A, uA, 'bad', 'u');
+  const avBad = fitPoly(ORIG_ISO_A, vA, 'bad', 'v');
+
+  // Rotated 45°: rotate both node positions and displacement vectors.
+  const uARot = uA.map((u,i) => u*ROT45_C - vA[i]*ROT45_S);
+  const vARot = uA.map((u,i) => u*ROT45_S + vA[i]*ROT45_C);
+  const auRot = fitPoly(ORIG_ISO_ROT, uARot, 'bad', 'u');
+  const avRot = fitPoly(ORIG_ISO_ROT, vARot, 'bad', 'v');
+  const curIsoRot = curIsoA.map(([x,y]) => [
+    ISO_CX+(x-ISO_CX)*ROT45_C-(y-ISO_CY)*ROT45_S,
+    ISO_CY+(x-ISO_CX)*ROT45_S+(y-ISO_CY)*ROT45_C,
+  ]);
+
+  // Eval functions: forward-map (xi,eta)→(x,y), then evaluate bad poly.
+  const evalBad = (xi, eta) => {
+    const [x,y] = isoFwd(ORIG_ISO_A, xi, eta);
+    return [evalPoly(auBad,x,y,'bad','u'), evalPoly(avBad,x,y,'bad','v')];
+  };
+  const evalRot = (xi, eta) => {
+    const [x,y] = isoFwd(ORIG_ISO_ROT, xi, eta);
+    return [evalPoly(auRot,x,y,'bad','u'), evalPoly(avRot,x,y,'bad','v')];
+  };
+
+  const vmax = Math.max(
+    computeVmax(evalBad), computeVmax(evalRot), 1e-6
+  );
+
+  drawQuad('iso-bad', ORIG_ISO_A,   curIsoA,   evalBad, ISO_BBOX, vmax,
+           'Axis-aligned', draggingIso);
+  drawQuad('iso-rot', ORIG_ISO_ROT, curIsoRot, evalRot, ISO_BBOX, vmax,
+           'Rotated 45\u00b0', -1);
+  updateAlphaPanels(auBad, avBad, auRot, avRot);
+}
+
+function resetIso() {
+  curIsoA = INIT_ISO_A.map(n => [...n]);
+  redrawIso();
+}
+
+/* ============================================================
+ *  DEMO 1 INTERACTION — drag nodes on either iso canvas
+ * ============================================================ */
+function isoTransformOf(canvasId) {
+  const cv = document.getElementById(canvasId);
+  return makeTransform(cv, ISO_BBOX.xmn, ISO_BBOX.xmx, ISO_BBOX.ymn, ISO_BBOX.ymx, 24);
+}
+function attachIsoCanvas(canvasId) {
+  const cv = document.getElementById(canvasId);
+  cv.addEventListener('mousedown', function(e) {
+    const [mx, my] = getMouseXY(cv, e);
+    const T = isoTransformOf(canvasId);
+    for (let i = 0; i < 4; i++) {
+      const sx = T.TX(curIsoA[i][0]), sy = T.TY(curIsoA[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 14) {
+        draggingIso = i; cv.style.cursor = 'grabbing'; return;
+      }
+    }
+  });
+  cv.addEventListener('mousemove', function(e) {
+    const [mx, my] = getMouseXY(cv, e);
+    if (draggingIso >= 0) {
+      const T = isoTransformOf(canvasId);
+      curIsoA[draggingIso] = [T.INV_TX(mx), T.INV_TY(my)];
+      redrawIso();
+      return;
+    }
+    const T = isoTransformOf(canvasId);
+    let over = false;
+    for (let i = 0; i < 4; i++) {
+      const sx = T.TX(curIsoA[i][0]), sy = T.TY(curIsoA[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 14) { over = true; break; }
+    }
+    cv.style.cursor = over ? 'grab' : 'default';
+  });
+  cv.addEventListener('mouseup',    () => { if (draggingIso >= 0) { draggingIso = -1; cv.style.cursor = 'default'; redrawIso(); } });
+  cv.addEventListener('mouseleave', () => { if (draggingIso >= 0) { draggingIso = -1; cv.style.cursor = 'default'; redrawIso(); } });
+
+  cv.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    const t = e.touches[0];
+    const [mx, my] = getMouseXY(cv, t);
+    const T = isoTransformOf(canvasId);
+    for (let i = 0; i < 4; i++) {
+      const sx = T.TX(curIsoA[i][0]), sy = T.TY(curIsoA[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 22) { draggingIso = i; return; }
+    }
+  }, {passive: false});
+  cv.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    if (draggingIso < 0) return;
+    const t = e.touches[0];
+    const [mx, my] = getMouseXY(cv, t);
+    const T = isoTransformOf(canvasId);
+    curIsoA[draggingIso] = [T.INV_TX(mx), T.INV_TY(my)];
+    redrawIso();
+  }, {passive: false});
+  cv.addEventListener('touchend', () => { draggingIso = -1; redrawIso(); });
+}
+attachIsoCanvas('iso-bad');
+// iso-rot is read-only: it mirrors the axis-aligned load rotated 45°.
+
+/* ============================================================
+ *  ISOPARAMETRIC UTILITIES  (used by Demo 1b only)
+ *
+ *  The good polynomial is derived from Lagrange interpolation in
+ *  natural coordinates (ξ, η).  The shape functions Nᵢ(ξ,η) are
+ *  the same for every element regardless of its orientation in
+ *  global space.  We therefore render the field by iterating over
+ *  a grid of natural coordinates and mapping each point forward
+ *  to global coordinates — no inverse mapping needed.
+ * ============================================================ */
+
+// Evaluate all four bilinear shape functions at (ξ, η).
+function isoN(xi, eta) {
+  return [
+    0.25*(1-xi)*(1-eta),
+    0.25*(1+xi)*(1-eta),
+    0.25*(1+xi)*(1+eta),
+    0.25*(1-xi)*(1+eta),
+  ];
+}
+
+// Forward map: natural (ξ,η) → global (x,y) using node positions.
+function isoFwd(nodes, xi, eta) {
+  const N = isoN(xi, eta);
+  return [
+    N[0]*nodes[0][0]+N[1]*nodes[1][0]+N[2]*nodes[2][0]+N[3]*nodes[3][0],
+    N[0]*nodes[0][1]+N[1]*nodes[1][1]+N[2]*nodes[2][1]+N[3]*nodes[3][1],
+  ];
+}
+
+// Interpolate a scalar field from nodal values at a natural point.
+function isoEval(vals, N) {
+  return N[0]*vals[0]+N[1]*vals[1]+N[2]*vals[2]+N[3]*vals[3];
+}
+
+
+// Natural-coordinate polynomial coefficients (α₁ + α₂ξ + α₃η + α₄ξη)
+// derived analytically from the four nodal values.
+function isoAlphas(vals) {
+  const [u1,u2,u3,u4] = vals;
+  return [
+    (u1+u2+u3+u4)/4,
+    (-u1+u2+u3-u4)/4,
+    (-u1-u2+u3+u4)/4,
+    (u1-u2+u3-u4)/4,
+  ];
+}
+function fmtIsoAlpha(a) {
+  const labels = ['', ' \u03be', ' \u03b7', ' \u03be\u03b7'];  // ξ, η, ξη
+  let s = '';
+  for (let i = 0; i < 4; i++) {
+    const v = a[i], abs = Math.abs(v).toFixed(3);
+    if (i === 0) s += (v < 0 ? '\u2212' : ' ') + abs;
+    else         s += '  ' + (v < 0 ? '\u2212' : '+') + ' ' + abs + labels[i];
+  }
+  return s;
+}
+
+
+/* ============================================================
+ *  DEMO 1b — GOOD POLYNOMIAL: ISOPARAMETRIC ROTATION TEST
+ *
+ *  The good polynomial is the isoparametric bilinear element:
+ *  u(ξ,η) = Σ Nᵢ(ξ,η) uᵢ.  The shape functions Nᵢ depend only
+ *  on natural coordinates; they do not know the global orientation
+ *  of the element.  When the element is rotated 45° and the same
+ *  physical load is expressed in the rotated local frame, the
+ *  polynomial in ξ,η is different (the load direction changed) but
+ *  the MAGNITUDE |d(ξ,η)| = √(u²+v²) is identical at every natural
+ *  point — because u² + v² is preserved under any rotation of the
+ *  displacement vector.  The right contour is therefore the left
+ *  contour rotated 45°, proving true rotation invariance.
+ *
+ *  Contrast with Failure 1: the bad polynomial is written in
+ *  GLOBAL x,y so x² and y² genuinely change under rotation,
+ *  producing a different contour — not just a rotated one.
+ * ============================================================ */
+const INIT_ISO_G = ORIG_ISO_A.map(n => [...n]);
+let curIsoG = INIT_ISO_G.map(n => [...n]);
+let draggingIsoG = -1;
+
+function getIsoUG() { return curIsoG.map((n, i) => n[0] - ORIG_ISO_A[i][0]); }
+function getIsoVG() { return curIsoG.map((n, i) => n[1] - ORIG_ISO_A[i][1]); }
+
+function redrawGood() {
+  const uG = getIsoUG(), vG = getIsoVG();
+
+  // Rotated 45°: rotate displacement vectors (same R45 convention as bad poly).
+  // Global displacement of rotated element = R45 * [u, v].
+  // Magnitude is preserved: |R45*d|² = |d|² at every natural point.
+  const uGRot = uG.map((u,i) => u*ROT45_C - vG[i]*ROT45_S);
+  const vGRot = uG.map((u,i) => u*ROT45_S + vG[i]*ROT45_C);
+  const curIsoGRot = curIsoG.map(([x,y]) => [
+    ISO_CX+(x-ISO_CX)*ROT45_C-(y-ISO_CY)*ROT45_S,
+    ISO_CY+(x-ISO_CX)*ROT45_S+(y-ISO_CY)*ROT45_C,
+  ]);
+
+  // Eval functions: isoparametric interpolation in natural coordinates.
+  const evalGood = (xi, eta) => {
+    const N = isoN(xi, eta);
+    return [isoEval(uG, N), isoEval(vG, N)];
+  };
+  const evalGoodRot = (xi, eta) => {
+    const N = isoN(xi, eta);
+    return [isoEval(uGRot, N), isoEval(vGRot, N)];
+  };
+
+  const vmax = Math.max(computeVmax(evalGood), 1e-6);
+
+  drawQuad('iso-good-aligned', ORIG_ISO_A,   curIsoG,    evalGood,
+           ISO_BBOX, vmax, 'Axis-aligned (isoparametric)', draggingIsoG);
+  drawQuad('iso-good-rot',     ORIG_ISO_ROT, curIsoGRot, evalGoodRot,
+           ISO_BBOX, vmax, 'Rotated 45\u00b0 (isoparametric)', -1);
+
+  document.getElementById('alpha-good-u').innerText     = fmtIsoAlpha(isoAlphas(uG));
+  document.getElementById('alpha-good-v').innerText     = fmtIsoAlpha(isoAlphas(vG));
+  document.getElementById('alpha-good-rot-u').innerText = fmtIsoAlpha(isoAlphas(uGRot));
+  document.getElementById('alpha-good-rot-v').innerText = fmtIsoAlpha(isoAlphas(vGRot));
+}
+
+function resetGood() {
+  curIsoG = INIT_ISO_G.map(n => [...n]);
+  redrawGood();
+}
+
+(function attachGoodCanvas() {
+  const canvasId = 'iso-good-aligned';
+  const cv = document.getElementById(canvasId);
+  function T() {
+    return makeTransform(cv, ISO_BBOX.xmn, ISO_BBOX.xmx,
+                             ISO_BBOX.ymn, ISO_BBOX.ymx, 24);
+  }
+  cv.addEventListener('mousedown', function(e) {
+    const [mx, my] = getMouseXY(cv, e);
+    const t = T();
+    for (let i = 0; i < 4; i++) {
+      const sx = t.TX(curIsoG[i][0]), sy = t.TY(curIsoG[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 14) {
+        draggingIsoG = i; cv.style.cursor = 'grabbing'; return;
+      }
+    }
+  });
+  cv.addEventListener('mousemove', function(e) {
+    const [mx, my] = getMouseXY(cv, e);
+    if (draggingIsoG >= 0) {
+      const t = T();
+      curIsoG[draggingIsoG] = [t.INV_TX(mx), t.INV_TY(my)];
+      redrawGood(); return;
+    }
+    const t = T(); let over = false;
+    for (let i = 0; i < 4; i++) {
+      const sx = t.TX(curIsoG[i][0]), sy = t.TY(curIsoG[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 14) { over = true; break; }
+    }
+    cv.style.cursor = over ? 'grab' : 'default';
+  });
+  cv.addEventListener('mouseup', () => {
+    if (draggingIsoG >= 0) { draggingIsoG = -1; cv.style.cursor = 'default'; redrawGood(); }
+  });
+  cv.addEventListener('mouseleave', () => {
+    if (draggingIsoG >= 0) { draggingIsoG = -1; cv.style.cursor = 'default'; redrawGood(); }
+  });
+  cv.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    const tc = e.touches[0], [mx, my] = getMouseXY(cv, tc), t = T();
+    for (let i = 0; i < 4; i++) {
+      const sx = t.TX(curIsoG[i][0]), sy = t.TY(curIsoG[i][1]);
+      if (Math.hypot(mx - sx, my - sy) < 22) { draggingIsoG = i; return; }
+    }
+  }, {passive: false});
+  cv.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    if (draggingIsoG < 0) return;
+    const tc = e.touches[0], [mx, my] = getMouseXY(cv, tc), t = T();
+    curIsoG[draggingIsoG] = [t.INV_TX(mx), t.INV_TY(my)];
+    redrawGood();
+  }, {passive: false});
+  cv.addEventListener('touchend', () => { draggingIsoG = -1; redrawGood(); });
+})();
+// iso-good-rot is read-only: mirrors the axis-aligned load rotated 45°.
+
+/* ============================================================
+ *  INTERACTION HELPER
+ * ============================================================ */
+function getMouseXY(cv, e) {
+  const r = cv.getBoundingClientRect();
+  const sx = cv.width / r.width, sy = cv.height / r.height;
+  return [(e.clientX - r.left) * sx, (e.clientY - r.top) * sy];
+}
+
+/* ============================================================
+ *  INIT
+ * ============================================================ */
+redrawIso();
+redrawGood();
+</script>
+</body>
+</html>
