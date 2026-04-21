@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plate with Hole &mdash; 8-Node Plane Stress Analysis</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa; color: #333;
+  padding: 20px; max-width: 1440px; margin: 0 auto;
+}
+h1 { text-align: center; margin-bottom: 6px; font-size: 1.5rem; }
+.subtitle { text-align: center; color: #666; margin-bottom: 18px;
+            font-size: 0.9rem; }
+.back-link { display: inline-block; font-size: 0.82rem; color: #2563eb;
+             text-decoration: none; margin-bottom: 8px; }
+.back-link:hover { text-decoration: underline; }
+
+.layout { display: flex; gap: 20px; flex-wrap: wrap; }
+.panel {
+  background: #fff; border-radius: 8px; padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.left-panel { flex: 0 0 310px; }
+.right-panel { flex: 1; min-width: 520px; }
+
+label { font-weight: 600; font-size: 0.85rem; display: block; margin-top: 10px; }
+label:first-child { margin-top: 0; }
+.input-row { display: flex; gap: 8px; align-items: center; margin-top: 4px;
+             flex-wrap: wrap; }
+.input-row span { font-size: 0.82rem; min-width: 20px; color: #555; }
+input[type="number"] {
+  width: 68px; padding: 4px 6px; border: 1px solid #ccc;
+  border-radius: 4px; font-size: 0.85rem;
+}
+select {
+  padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+button {
+  padding: 7px 13px; border: none; border-radius: 5px;
+  cursor: pointer; font-size: 0.82rem; font-weight: 600;
+}
+.btn-primary { background: #3b82f6; color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-secondary { background: #e5e7eb; color: #333; }
+.btn-secondary:hover { background: #d1d5db; }
+.btn-active { background: #2563eb; color: #fff; }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+#main-canvas {
+  width: 100%; border: 1px solid #ddd;
+  border-radius: 6px; background: #fafbfc;
+}
+
+.view-buttons { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.view-buttons button { padding: 6px 10px; font-size: 0.78rem; }
+
+.results-summary { margin-top: 14px; font-size: 0.82rem; }
+.results-summary table { border-collapse: collapse; width: 100%; margin-top: 4px; }
+.results-summary td {
+  padding: 3px 8px; border-bottom: 1px solid #eee;
+  font-family: 'Courier New', monospace; font-size: 0.8rem;
+}
+.results-summary td:first-child {
+  font-weight: 600; color: #555; font-family: 'Segoe UI', sans-serif;
+}
+
+.scale-slider {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px; font-size: 0.82rem;
+}
+.scale-slider input[type="range"] { flex: 1; }
+
+.solution-table {
+  margin-top: 10px; max-height: 220px; overflow-y: auto; font-size: 0.78rem;
+}
+.solution-table table { border-collapse: collapse; width: 100%; }
+.solution-table th {
+  background: #eef; padding: 4px 6px; text-align: center;
+  position: sticky; top: 0; font-size: 0.75rem;
+}
+.solution-table td {
+  padding: 3px 6px; text-align: center;
+  border-bottom: 1px solid #eee;
+  font-family: 'Courier New', monospace; font-size: 0.72rem;
+}
+
+#matrix-heatmap {
+  border: 1px solid #ccc; border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+.note-block {
+  margin-top: 10px; padding: 8px 10px; font-size: 0.78rem;
+  background: #fef3c7; border-left: 3px solid #f59e0b;
+  border-radius: 4px; line-height: 1.45;
+}
+.toggle-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.busy-shim {
+  display: none; margin-top: 8px; padding: 8px 12px;
+  background: #e0f2fe; border-left: 3px solid #0284c7;
+  border-radius: 4px; font-size: 0.82rem; color: #075985;
+}
+</style>
+</head>
+<body>
+
+<a class="back-link" href="index.html">&larr; Back to Interactive Tools</a>
+
+<h1>Plate with a Circular Hole &mdash; 8-Node Plane Stress</h1>
+<p class="subtitle">
+  CE/ME&nbsp;532 &middot; Q8 Serendipity Elements &middot;
+  Bottom edge fully fixed, non-uniform vertical traction on top edge.
+</p>
+
+<div class="layout">
+  <div class="panel left-panel">
+    <label>Preset</label>
+    <div class="btn-group">
+      <button class="btn-secondary" onclick="loadPreset('parabolic')">Parabolic</button>
+      <button class="btn-secondary" onclick="loadPreset('linear')">Linear Ramp</button>
+      <button class="btn-secondary" onclick="loadPreset('cosine')">Cosine Pull</button>
+    </div>
+
+    <label>Geometry</label>
+    <div class="input-row">
+      <span>W</span><input type="number" id="inp-W" value="4" step="any" min="0.5">
+      <span>H</span><input type="number" id="inp-H" value="3" step="any" min="0.5">
+    </div>
+    <div class="input-row">
+      <span>R</span><input type="number" id="inp-R" value="0.6" step="0.05" min="0.05">
+    </div>
+
+    <label>Material (plane stress/strain)</label>
+    <div class="btn-group" style="margin-top:4px">
+      <button class="btn-active" id="btn-ps" onclick="setAnalysisType('stress')">Plane Stress</button>
+      <button class="btn-secondary" id="btn-pn" onclick="setAnalysisType('strain')">Plane Strain</button>
+    </div>
+    <div class="input-row" style="margin-top:6px">
+      <span>E</span><input type="number" id="inp-E" value="1000" step="any" min="0.01">
+      <span>&nu;</span><input type="number" id="inp-nu" value="0.3" step="0.01" min="0" max="0.499">
+    </div>
+    <div class="input-row">
+      <span>t</span><input type="number" id="inp-t" value="1" step="any" min="0.001">
+    </div>
+
+    <label>Mesh (per petal)</label>
+    <div class="input-row">
+      <span>n<sub>r</sub></span>
+      <input type="number" id="inp-nr" value="2" min="1" max="6">
+      <span>n<sub>c</sub></span>
+      <input type="number" id="inp-nc" value="4" min="1" max="10">
+    </div>
+    <div style="margin-top:4px;font-size:0.72rem;color:#888">
+      Four petal blocks wrap the hole. Total Q8 elements = 4&thinsp;&middot;&thinsp;n<sub>r</sub>&thinsp;&middot;&thinsp;n<sub>c</sub>.
+    </div>
+
+    <label>Top-edge traction q(x)</label>
+    <select id="inp-load" style="width:100%">
+      <option value="parabolic">Parabolic: q = q₀ · sin(π x/W)</option>
+      <option value="linear">Linear ramp: q = q₀ · (x/W)</option>
+      <option value="cosine">Cosine pull: q = q₀ · (1 − cos(2π x/W))/2</option>
+      <option value="uniform">Uniform: q = q₀</option>
+    </select>
+    <div class="input-row" style="margin-top:6px">
+      <span>q₀</span><input type="number" id="inp-q0" value="-10" step="any">
+      <span style="font-size:0.72rem;color:#888">
+        negative = pushing down, positive = pulling up
+      </span>
+    </div>
+
+    <button class="btn-primary" style="width:100%; margin-top:14px" onclick="runAnalysis()">
+      &#9654; Analyze
+    </button>
+    <div class="busy-shim" id="busy-shim">Solving&hellip; (larger meshes take a few seconds)</div>
+
+    <div class="results-summary" id="results-summary"></div>
+
+    <div class="note-block">
+      Element stiffness uses <b>3&times;3 Gauss</b> (full integration).
+      Edge tractions on the top boundary are converted to
+      consistent nodal forces via 3-point Gauss on each element edge.
+    </div>
+  </div>
+
+  <div class="panel right-panel">
+    <div class="view-buttons" id="view-buttons">
+      <button class="btn-active" onclick="setView('mesh')">Mesh</button>
+      <button class="btn-secondary" onclick="setView('deformed')">Deformed</button>
+      <button class="btn-secondary" onclick="setView('disp_mag')">|d|</button>
+      <button class="btn-secondary" onclick="setView('ux')">u</button>
+      <button class="btn-secondary" onclick="setView('uy')">v</button>
+      <button class="btn-secondary" onclick="setView('sig_x')">&sigma;<sub>x</sub></button>
+      <button class="btn-secondary" onclick="setView('sig_y')">&sigma;<sub>y</sub></button>
+      <button class="btn-secondary" onclick="setView('tau_xy')">&tau;<sub>xy</sub></button>
+      <button class="btn-secondary" onclick="setView('sig_vm')">&sigma;<sub>vm</sub></button>
+    </div>
+
+    <canvas id="main-canvas"></canvas>
+
+    <div class="scale-slider" id="scale-slider" style="display:none">
+      <span>Deformation scale:</span>
+      <input type="range" id="disp-scale" min="0.1" max="10" step="0.1" value="1"
+             oninput="document.getElementById('scale-val').textContent=
+             (+this.value).toFixed(1)+'&times;'; redraw();">
+      <span id="scale-val">1.0&times;</span>
+    </div>
+
+    <div class="toggle-row">
+      <button class="btn-secondary" onclick="togglePanel('solution-box')">
+        Nodal Displacements
+      </button>
+      <button class="btn-secondary" onclick="togglePanel('matrix-box')">
+        Stiffness Matrix
+      </button>
+      <button class="btn-secondary" onclick="togglePanel('elem-box')">
+        Element Stresses
+      </button>
+      <button class="btn-secondary" onclick="togglePanel('element-box')">
+        Element Properties
+      </button>
+    </div>
+
+    <div style="margin-top:8px;font-size:0.76rem;color:#0369a1;
+                background:#e0f2fe;border-left:3px solid #0284c7;
+                padding:6px 10px;border-radius:4px">
+      &#128073; <b>Tip:</b> click any element in the canvas to inspect its
+      nodes, Jacobian, B matrix, and element stiffness k<sup>(e)</sup>.
+    </div>
+
+    <div class="solution-table" id="solution-box" style="display:none"></div>
+    <div id="matrix-box" style="display:none; margin-top:10px;"></div>
+    <div class="solution-table" id="elem-box" style="display:none"></div>
+    <div id="element-box" style="display:none; margin-top:10px;
+         padding:10px; border:1px solid #e5e7eb; border-radius:6px;
+         background:#fafbfc; max-height:620px; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const S = {
+  nodes: [], elems: [], fixedDofs: [], Fglobal: null,
+  K: null, disp: null, elemRes: null, eData: null,
+  viewMode: 'mesh', analysisType: 'stress', autoScale: 1,
+  selectedElem: null, transform: null,
+};
+const VIEW_MODES = ['mesh','deformed','disp_mag','ux','uy',
+                    'sig_x','sig_y','tau_xy','sig_vm'];
+
+// ============================================================
+//  LINEAR ALGEBRA HELPERS
+// ============================================================
+function matMul(A, B) {
+  const m = A.length, p = A[0].length, n = B[0].length;
+  const C = Array.from({length: m}, () => new Array(n).fill(0));
+  for (let i = 0; i < m; i++)
+    for (let j = 0; j < n; j++) {
+      let s = 0;
+      for (let k = 0; k < p; k++) s += A[i][k] * B[k][j];
+      C[i][j] = s;
+    }
+  return C;
+}
+function matT(A) {
+  const m = A.length, n = A[0].length;
+  return Array.from({length: n}, (_, j) =>
+    Array.from({length: m}, (_, i) => A[i][j]));
+}
+function inv2(J) {
+  const d = J[0][0]*J[1][1] - J[0][1]*J[1][0];
+  return { inv: [[ J[1][1]/d, -J[0][1]/d],
+                 [-J[1][0]/d,  J[0][0]/d]], det: d };
+}
+
+// Conjugate-gradient solver for symmetric positive-definite systems.
+// Uses Jacobi (diagonal) preconditioning; good enough for this size.
+function cgSolve(K, F, tol, maxIter) {
+  const n = K.length;
+  const x = new Array(n).fill(0);
+  const r = F.slice();
+  const M = new Array(n);
+  for (let i = 0; i < n; i++) M[i] = K[i][i] > 1e-14 ? 1/K[i][i] : 1;
+  const z = r.map((v, i) => v * M[i]);
+  let p = z.slice();
+  let rz = 0; for (let i = 0; i < n; i++) rz += r[i]*z[i];
+  const normF = Math.sqrt(F.reduce((s,v)=>s+v*v, 0)) || 1;
+  const stop = tol * normF;
+
+  for (let it = 0; it < maxIter; it++) {
+    // Ap = K p
+    const Ap = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) {
+      const Ki = K[i]; let s = 0;
+      for (let j = 0; j < n; j++) s += Ki[j]*p[j];
+      Ap[i] = s;
+    }
+    let pAp = 0;
+    for (let i = 0; i < n; i++) pAp += p[i]*Ap[i];
+    const alpha = rz / pAp;
+    for (let i = 0; i < n; i++) { x[i] += alpha*p[i]; r[i] -= alpha*Ap[i]; }
+    const normR = Math.sqrt(r.reduce((s,v)=>s+v*v, 0));
+    if (normR < stop) return x;
+    for (let i = 0; i < n; i++) z[i] = r[i]*M[i];
+    let rz2 = 0; for (let i = 0; i < n; i++) rz2 += r[i]*z[i];
+    const beta = rz2 / rz;
+    for (let i = 0; i < n; i++) p[i] = z[i] + beta*p[i];
+    rz = rz2;
+  }
+  return x;
+}
+
+// ============================================================
+//  Q8 SHAPE FUNCTIONS & DERIVATIVES
+// ============================================================
+function N_Q8(xi, et) {
+  const n = new Array(8);
+  const xic=[-1,1,1,-1], etc=[-1,-1,1,1];
+  for (let i=0;i<4;i++) {
+    const u = xic[i]*xi, v = etc[i]*et;
+    n[i] = 0.25*(1+u)*(1+v)*(u+v-1);
+  }
+  n[4] = 0.5*(1-xi*xi)*(1-et);
+  n[5] = 0.5*(1+xi)*(1-et*et);
+  n[6] = 0.5*(1-xi*xi)*(1+et);
+  n[7] = 0.5*(1-xi)*(1-et*et);
+  return n;
+}
+function dN_Q8(xi, et) {
+  const ds = new Array(8), dt = new Array(8);
+  const xic=[-1,1,1,-1], etc=[-1,-1,1,1];
+  for (let i=0;i<4;i++) {
+    ds[i] = 0.25*xic[i]*(1+etc[i]*et)*(2*xic[i]*xi + etc[i]*et);
+    dt[i] = 0.25*etc[i]*(1+xic[i]*xi)*(xic[i]*xi + 2*etc[i]*et);
+  }
+  ds[4] = -xi*(1-et);       dt[4] = -0.5*(1-xi*xi);
+  ds[5] =  0.5*(1-et*et);   dt[5] = -et*(1+xi);
+  ds[6] = -xi*(1+et);       dt[6] =  0.5*(1-xi*xi);
+  ds[7] = -0.5*(1-et*et);   dt[7] = -et*(1-xi);
+  return { ds, dt };
+}
+// 1-D quadratic edge shape functions (on a Q8 edge, 3 nodes)
+// using local xi in [-1,1]: N_left(-1)=1, N_mid(0)=1, N_right(+1)=1
+function edgeN(xi) {
+  return [ 0.5*xi*(xi-1), 1-xi*xi, 0.5*xi*(xi+1) ];
+}
+function edgeDN(xi) {
+  return [ xi - 0.5, -2*xi, xi + 0.5 ];
+}
+
+// ============================================================
+//  MESH GENERATION:  4-petal O-grid wrapping the circular hole
+// ============================================================
+function genMesh(W, H, R, nr, nc) {
+  const Cx = W/2, Cy = H/2;
+  // petals: [phi_start, phi_end, outer(θ) -> (x,y)]
+  const a = Math.atan2(H/2, W/2);   // angle from center to (W,H)
+  const petals = [
+    { // right
+      p0: -a, p1:  a,
+      outer: θ => [W, Cy + (W - Cx)*Math.tan(θ)]
+    },
+    { // top
+      p0:  a, p1: Math.PI - a,
+      outer: θ => [Cx + (H - Cy)/Math.tan(θ), H]
+    },
+    { // left
+      p0: Math.PI - a, p1: Math.PI + a,
+      outer: θ => [0, Cy - Cx*Math.tan(θ)]
+    },
+    { // bottom
+      p0: Math.PI + a, p1: 2*Math.PI - a,
+      outer: θ => [Cx - Cy/Math.tan(θ), 0]
+    }
+  ];
+
+  // Shared node dedup
+  const nodeMap = new Map();
+  const nodes = [];
+  function addNode(x, y) {
+    // 5-decimal dedup absorbs trig round-off at shared petal boundaries;
+    // "+ 0" normalises -0 to 0 so shared corners hash identically.
+    const key = (Math.round(x*1e5)/1e5 + 0).toFixed(5) + ',' +
+                (Math.round(y*1e5)/1e5 + 0).toFixed(5);
+    let id = nodeMap.get(key);
+    if (id === undefined) {
+      id = nodes.length;
+      nodes.push({ x, y });
+      nodeMap.set(key, id);
+    }
+    return id;
+  }
+
+  const elems = [];
+  const Iro_count = 2*nr + 1;   // radial grid lines (t direction)
+  const Ico_count = 2*nc + 1;   // circumferential (s direction)
+
+  for (const P of petals) {
+    // grid of global IDs: gid[Ic][Ir], Ic∈[0,2nc], Ir∈[0,2nr].
+    const gid = Array.from({length: Ico_count},
+                           () => new Array(Iro_count).fill(-1));
+    for (let Ic = 0; Ic < Ico_count; Ic++) {
+      const s = -1 + 2*Ic/(Ico_count-1);
+      const θ = P.p0 + (s+1)/2 * (P.p1 - P.p0);
+      const innerP = [Cx + R*Math.cos(θ), Cy + R*Math.sin(θ)];
+      const outerP = P.outer(θ);
+      for (let Ir = 0; Ir < Iro_count; Ir++) {
+        // Skip center node of each Q8 cell (Ic odd AND Ir odd)
+        if (Ic % 2 === 1 && Ir % 2 === 1) continue;
+        const u = Ir/(Iro_count-1);   // 0 at inner, 1 at outer
+        const x = (1-u)*innerP[0] + u*outerP[0];
+        const y = (1-u)*innerP[1] + u*outerP[1];
+        gid[Ic][Ir] = addNode(x, y);
+      }
+    }
+    // Build Q8 cells of this petal
+    //   ξ direction (local) = radial (t / Ir increases with ξ)
+    //   η direction (local) = circumferential (s / Ic increases with η)
+    for (let ic = 0; ic < nc; ic++) {
+      for (let ir = 0; ir < nr; ir++) {
+        const Ic0 = 2*ic, Ir0 = 2*ir;
+        const n1 = gid[Ic0    ][Ir0    ];   // (ξ,η) = (-1,-1)
+        const n2 = gid[Ic0    ][Ir0 + 2];   //          (+1,-1)
+        const n3 = gid[Ic0 + 2][Ir0 + 2];   //          (+1,+1)
+        const n4 = gid[Ic0 + 2][Ir0    ];   //          (-1,+1)
+        const n5 = gid[Ic0    ][Ir0 + 1];   //          ( 0,-1)
+        const n6 = gid[Ic0 + 1][Ir0 + 2];   //          (+1, 0)
+        const n7 = gid[Ic0 + 2][Ir0 + 1];   //          ( 0,+1)
+        const n8 = gid[Ic0 + 1][Ir0    ];   //          (-1, 0)
+        elems.push({
+          nds: [n1, n2, n3, n4, n5, n6, n7, n8],
+          petal: petals.indexOf(P),
+          ic, ir
+        });
+      }
+    }
+  }
+  return { nodes, elems, petals, W, H, R, Cx, Cy, nr, nc };
+}
+
+// ============================================================
+//  MATERIAL
+// ============================================================
+function elasticMatrix(E, nu) {
+  if (S.analysisType === 'strain') {
+    const c = E / ((1+nu)*(1-2*nu));
+    return [
+      [c*(1-nu), c*nu,     0           ],
+      [c*nu,     c*(1-nu), 0           ],
+      [0,        0,        c*(1-2*nu)/2]
+    ];
+  }
+  const c = E / (1 - nu*nu);
+  return [[c, c*nu, 0], [c*nu, c, 0], [0, 0, c*(1-nu)/2]];
+}
+
+// ============================================================
+//  Q8 ELEMENT STIFFNESS  (3x3 Gauss)
+// ============================================================
+const G3 = [-Math.sqrt(3/5), 0, Math.sqrt(3/5)];
+const W3 = [5/9, 8/9, 5/9];
+
+function q8Element(elem, nodes, D, t) {
+  const k = Array.from({length: 16}, () => new Array(16).fill(0));
+  const xe = elem.nds.map(i => nodes[i].x);
+  const ye = elem.nds.map(i => nodes[i].y);
+  const BGauss = [];     // B and weights at each Gauss point for stress
+  for (let gx = 0; gx < 3; gx++) {
+    for (let gy = 0; gy < 3; gy++) {
+      const xi = G3[gx], et = G3[gy], wgt = W3[gx]*W3[gy];
+      const { ds, dt } = dN_Q8(xi, et);
+      // Jacobian
+      let J00=0, J01=0, J10=0, J11=0;
+      for (let i=0;i<8;i++) {
+        J00 += ds[i]*xe[i]; J01 += ds[i]*ye[i];
+        J10 += dt[i]*xe[i]; J11 += dt[i]*ye[i];
+      }
+      const detJ = J00*J11 - J01*J10;
+      const invJ = [[ J11/detJ, -J01/detJ],
+                    [-J10/detJ,  J00/detJ]];
+      // dN/dx, dN/dy
+      const dNx = new Array(8), dNy = new Array(8);
+      for (let i=0;i<8;i++) {
+        dNx[i] = invJ[0][0]*ds[i] + invJ[0][1]*dt[i];
+        dNy[i] = invJ[1][0]*ds[i] + invJ[1][1]*dt[i];
+      }
+      // B (3x16)
+      const B = Array.from({length:3}, () => new Array(16).fill(0));
+      for (let i=0;i<8;i++) {
+        B[0][2*i  ] = dNx[i];
+        B[1][2*i+1] = dNy[i];
+        B[2][2*i  ] = dNy[i];
+        B[2][2*i+1] = dNx[i];
+      }
+      // k += Bᵀ D B * t * |J| * w
+      const DB = matMul(D, B);
+      const scale = t * detJ * wgt;
+      for (let i=0;i<16;i++)
+        for (let j=0;j<16;j++) {
+          let s = 0;
+          for (let m=0;m<3;m++) s += B[m][i]*DB[m][j];
+          k[i][j] += s * scale;
+        }
+      BGauss.push({ xi, et, B, detJ, wgt });
+    }
+  }
+  // Element centroid B (for mesh view / post):
+  const { ds:ds0, dt:dt0 } = dN_Q8(0, 0);
+  let J00=0, J01=0, J10=0, J11=0;
+  for (let i=0;i<8;i++) {
+    J00 += ds0[i]*xe[i]; J01 += ds0[i]*ye[i];
+    J10 += dt0[i]*xe[i]; J11 += dt0[i]*ye[i];
+  }
+  const detJ0 = J00*J11 - J01*J10;
+  const invJ0 = [[ J11/detJ0, -J01/detJ0],
+                 [-J10/detJ0,  J00/detJ0]];
+  const dNx0 = new Array(8), dNy0 = new Array(8);
+  for (let i=0;i<8;i++) {
+    dNx0[i] = invJ0[0][0]*ds0[i] + invJ0[0][1]*dt0[i];
+    dNy0[i] = invJ0[1][0]*ds0[i] + invJ0[1][1]*dt0[i];
+  }
+  const Bc = Array.from({length:3}, () => new Array(16).fill(0));
+  for (let i=0;i<8;i++) {
+    Bc[0][2*i  ] = dNx0[i];
+    Bc[1][2*i+1] = dNy0[i];
+    Bc[2][2*i  ] = dNy0[i];
+    Bc[2][2*i+1] = dNx0[i];
+  }
+  return { k, BGauss, Bc };
+}
+
+// ============================================================
+//  ASSEMBLY
+// ============================================================
+function assemble(mesh, E, nu, t) {
+  const { nodes, elems } = mesh;
+  const D = elasticMatrix(E, nu);
+  const nd = nodes.length * 2;
+  const K = Array.from({length: nd}, () => new Array(nd).fill(0));
+  const eData = [];
+  for (const elem of elems) {
+    const { k, BGauss, Bc } = q8Element(elem, nodes, D, t);
+    const dofs = [];
+    for (const nid of elem.nds) { dofs.push(2*nid, 2*nid+1); }
+    for (let i=0;i<16;i++)
+      for (let j=0;j<16;j++)
+        K[dofs[i]][dofs[j]] += k[i][j];
+    eData.push({ dofs, BGauss, Bc, D, ke: k, elem });
+  }
+  return { K, D, eData };
+}
+
+// ============================================================
+//  CONSISTENT NODAL LOADS ON THE TOP EDGE
+// ============================================================
+//   Load is vertical traction q(x) (force per unit length, times t):
+//     F_y = ∫ N_i(xi) · q(x(xi)) · t · |dr/dxi| dxi  along each top edge
+//   3-point Gauss quadrature on [-1,1] for each element edge.
+function applyTopLoad(mesh, F, q_fn, t) {
+  const { nodes, elems, W, H, nr } = mesh;
+  // Top edge of plate = petal #1 (top), outer radial boundary = Ir = 2*nr
+  // In our element ordering (ξ=radial, η=circ), that is the ξ=+1 edge,
+  // which uses nodes (corner2, midside6, corner3) of the element.
+  for (const elem of elems) {
+    if (elem.petal !== 1) continue;     // only top petal
+    if (elem.ir !== nr - 1) continue;   // only outermost radial row
+    const n2 = elem.nds[1], n3 = elem.nds[2], n6 = elem.nds[5];
+    const x2 = nodes[n2].x, y2 = nodes[n2].y;
+    const x3 = nodes[n3].x, y3 = nodes[n3].y;
+    const x6 = nodes[n6].x, y6 = nodes[n6].y;
+    // Edge parameterization in local xi ∈ [-1,1]:
+    //   node (corner2) at xi = -1,  midside6 at xi = 0, corner3 at xi = +1
+    //   (this matches η=-1→+1 along ξ=+1 edge in the parent element)
+    for (let g = 0; g < 3; g++) {
+      const xi_e = G3[g], w_e = W3[g];
+      const n_e = edgeN(xi_e);        // [N_cnr2, N_mid6, N_cnr3]
+      const d_e = edgeDN(xi_e);
+      const x_g = n_e[0]*x2 + n_e[1]*x6 + n_e[2]*x3;
+      const y_g = n_e[0]*y2 + n_e[1]*y6 + n_e[2]*y3;
+      const dx  = d_e[0]*x2 + d_e[1]*x6 + d_e[2]*x3;
+      const dy  = d_e[0]*y2 + d_e[1]*y6 + d_e[2]*y3;
+      const J_e = Math.hypot(dx, dy);
+      const q_here = q_fn(x_g, y_g);
+      const fscale = q_here * t * J_e * w_e;
+      // Vertical traction: distribute to the v-DOFs of the 3 edge nodes
+      F[2*n2 + 1] += n_e[0] * fscale;
+      F[2*n6 + 1] += n_e[1] * fscale;
+      F[2*n3 + 1] += n_e[2] * fscale;
+    }
+  }
+}
+
+// ============================================================
+//  SOLVE with fixed DOFs
+// ============================================================
+function solve(K, F, fixedDofs) {
+  const n = K.length;
+  const isF = new Set(fixedDofs);
+  const free = []; for (let i=0;i<n;i++) if (!isF.has(i)) free.push(i);
+  const m = free.length;
+  const Kf = new Array(m);
+  for (let i=0;i<m;i++) {
+    const row = new Array(m);
+    const Kr = K[free[i]];
+    for (let j=0;j<m;j++) row[j] = Kr[free[j]];
+    Kf[i] = row;
+  }
+  const Ff = free.map(i => F[i]);
+  const xf = cgSolve(Kf, Ff, 1e-10, Math.max(3000, 5*m));
+  const x  = new Array(n).fill(0);
+  for (let i=0;i<m;i++) x[free[i]] = xf[i];
+  return x;
+}
+
+// ============================================================
+//  POST-PROCESSING
+// ============================================================
+function postProcess(mesh, eData, disp, D) {
+  return mesh.elems.map((elem, e) => {
+    const { dofs, BGauss, Bc } = eData[e];
+    const de = dofs.map(i => disp[i]);
+    // Stresses at Gauss points, then average
+    const gauss = BGauss.map(g => {
+      const eps = [0,0,0];
+      for (let i=0;i<3;i++)
+        for (let j=0;j<16;j++) eps[i] += g.B[i][j]*de[j];
+      const sig = [0,0,0];
+      for (let i=0;i<3;i++)
+        for (let j=0;j<3;j++) sig[i] += D[i][j]*eps[j];
+      return { xi:g.xi, et:g.et, eps, sig };
+    });
+    // Centroidal (for contours):
+    const epsC = [0,0,0];
+    for (let i=0;i<3;i++)
+      for (let j=0;j<16;j++) epsC[i] += Bc[i][j]*de[j];
+    const sigC = [0,0,0];
+    for (let i=0;i<3;i++)
+      for (let j=0;j<3;j++) sigC[i] += D[i][j]*epsC[j];
+    const vm = Math.sqrt(sigC[0]*sigC[0] - sigC[0]*sigC[1]
+                       + sigC[1]*sigC[1] + 3*sigC[2]*sigC[2]);
+    return { gauss,
+             eps:epsC, sig:sigC, vonMises: vm };
+  });
+}
+
+// ============================================================
+//  LOAD PROFILE
+// ============================================================
+function getLoadFn() {
+  const kind = document.getElementById('inp-load').value;
+  const q0 = +document.getElementById('inp-q0').value;
+  const W  = +document.getElementById('inp-W').value;
+  if (kind === 'parabolic')
+    return (x,y) => q0 * Math.sin(Math.PI*x/W);
+  if (kind === 'linear')
+    return (x,y) => q0 * (x/W);
+  if (kind === 'cosine')
+    return (x,y) => q0 * 0.5*(1 - Math.cos(2*Math.PI*x/W));
+  return (x,y) => q0;
+}
+function loadPreset(name) {
+  const v = (id, val) => document.getElementById(id).value = val;
+  if (name === 'parabolic') {
+    v('inp-W',4); v('inp-H',3); v('inp-R',0.6);
+    v('inp-E',1000); v('inp-nu',0.3); v('inp-t',1);
+    v('inp-nr',2); v('inp-nc',4);
+    v('inp-q0',-10); document.getElementById('inp-load').value='parabolic';
+  } else if (name === 'linear') {
+    v('inp-W',4); v('inp-H',3); v('inp-R',0.5);
+    v('inp-E',1000); v('inp-nu',0.3); v('inp-t',1);
+    v('inp-nr',2); v('inp-nc',5);
+    v('inp-q0',-15); document.getElementById('inp-load').value='linear';
+  } else {
+    v('inp-W',4); v('inp-H',3); v('inp-R',0.75);
+    v('inp-E',1000); v('inp-nu',0.3); v('inp-t',1);
+    v('inp-nr',3); v('inp-nc',6);
+    v('inp-q0',20); document.getElementById('inp-load').value='cosine';
+  }
+}
+
+// ============================================================
+//  MAIN ANALYSIS
+// ============================================================
+function runAnalysis() {
+  const g = id => +document.getElementById(id).value;
+  const W=g('inp-W'), H=g('inp-H'), R=g('inp-R');
+  const E=g('inp-E'), nu=g('inp-nu'), t=g('inp-t');
+  const nr=g('inp-nr'), nc=g('inp-nc');
+  if (R > 0.45*Math.min(W,H)) {
+    alert('Hole radius too large for plate; reduce R.'); return;
+  }
+  const busy = document.getElementById('busy-shim');
+  busy.style.display = 'block';
+  // let the DOM paint the busy notice
+  setTimeout(() => {
+    try {
+      const mesh = genMesh(W, H, R, nr, nc);
+      S.nodes = mesh.nodes; S.elems = mesh.elems; S.mesh = mesh;
+
+      const { K, D, eData } = assemble(mesh, E, nu, t);
+      S.eData = eData; S.selectedElem = null;
+      const nd = mesh.nodes.length * 2;
+      const F = new Array(nd).fill(0);
+      applyTopLoad(mesh, F, getLoadFn(), t);
+      // Fix bottom edge (y ≈ 0)
+      const tolY = 1e-6 * H;
+      const fixed = [];
+      for (let i = 0; i < mesh.nodes.length; i++) {
+        if (Math.abs(mesh.nodes[i].y) < tolY) fixed.push(2*i, 2*i+1);
+      }
+      S.fixedDofs = fixed; S.Fglobal = F;
+      const disp = solve(K, F, fixed);
+      S.K = K; S.disp = disp;
+      S.elemRes = postProcess(mesh, eData, disp, D);
+
+      const maxD = Math.max(...disp.map(Math.abs));
+      S.autoScale = maxD > 0
+        ? 0.12 * Math.max(W, H) / maxD : 1;
+      document.getElementById('disp-scale').value = 1;
+      document.getElementById('scale-val').innerHTML = '1.0&times;';
+
+      showSummary();
+      redraw();
+      if (document.getElementById('solution-box').style.display !== 'none')
+        renderSolTable();
+      if (document.getElementById('matrix-box').style.display !== 'none')
+        renderMatrix();
+      if (document.getElementById('elem-box').style.display !== 'none')
+        renderElemTable();
+      renderElementInfo(null);
+    } finally {
+      busy.style.display = 'none';
+    }
+  }, 30);
+}
+
+// ============================================================
+//  COLOR MAP (blue -> cyan -> green -> yellow -> red)
+// ============================================================
+function cmap(tt) {
+  tt = Math.max(0, Math.min(1, tt));
+  let r,g,b;
+  if (tt<0.25)      { const s=tt/0.25;       r=0;   g=~~(255*s); b=255; }
+  else if (tt<0.5)  { const s=(tt-0.25)/0.25; r=0;   g=255; b=~~(255*(1-s)); }
+  else if (tt<0.75) { const s=(tt-0.5)/0.25;  r=~~(255*s); g=255; b=0; }
+  else              { const s=(tt-0.75)/0.25; r=255; g=~~(255*(1-s)); b=0; }
+  return `rgb(${r},${g},${b})`;
+}
+
+// ============================================================
+//  DRAWING
+// ============================================================
+// Sample a Q8 element's boundary (4 curved edges) at a given ξ,η on edge.
+function q8EdgePoints(elem, nodes, side, nPts) {
+  // side: 0=bottom(η=-1), 1=right(ξ=+1), 2=top(η=+1), 3=left(ξ=-1)
+  const out = [];
+  for (let k = 0; k <= nPts; k++) {
+    const s = -1 + 2*k/nPts;
+    let xi, et;
+    if (side === 0) { xi = s; et = -1; }
+    else if (side === 1) { xi = 1; et = s; }
+    else if (side === 2) { xi = s; et = 1; }
+    else { xi = -1; et = s; }
+    const N = N_Q8(xi, et);
+    let x=0, y=0;
+    for (let i=0;i<8;i++) {
+      x += N[i]*nodes[elem.nds[i]].x;
+      y += N[i]*nodes[elem.nds[i]].y;
+    }
+    out.push([x,y]);
+  }
+  return out;
+}
+function q8Point(elem, nodes, xi, et) {
+  const N = N_Q8(xi, et);
+  let x=0, y=0;
+  for (let i=0;i<8;i++) {
+    x += N[i]*nodes[elem.nds[i]].x;
+    y += N[i]*nodes[elem.nds[i]].y;
+  }
+  return [x, y];
+}
+function q8PointDef(elem, nodes, disp, dsc, xi, et) {
+  const N = N_Q8(xi, et);
+  let x=0, y=0;
+  for (let i=0;i<8;i++) {
+    const nid = elem.nds[i];
+    x += N[i]*(nodes[nid].x + disp[2*nid]*dsc);
+    y += N[i]*(nodes[nid].y + disp[2*nid+1]*dsc);
+  }
+  return [x, y];
+}
+function q8PointField(elem, nodes, disp, xi, et, key) {
+  // key in {'ux','uy','disp_mag'}
+  const N = N_Q8(xi, et);
+  let u=0, v=0;
+  for (let i=0;i<8;i++) {
+    const nid = elem.nds[i];
+    u += N[i]*disp[2*nid];
+    v += N[i]*disp[2*nid+1];
+  }
+  if (key === 'ux') return u;
+  if (key === 'uy') return v;
+  return Math.hypot(u, v);
+}
+
+function drawQ8Outline(ctx, elem, nodes, tx, ty, stroke, lw, fill) {
+  const NP = 6;
+  ctx.beginPath();
+  const pts = [
+    ...q8EdgePoints(elem, nodes, 0, NP),
+    ...q8EdgePoints(elem, nodes, 1, NP).slice(1),
+    ...q8EdgePoints(elem, nodes, 2, NP).slice(1).reverse(),
+    ...q8EdgePoints(elem, nodes, 3, NP).slice(1).reverse()
+  ];
+  // Note: side 2 returns bottom→top (η=+1, ξ from -1 to +1); we want to
+  // go CCW around the element boundary. Build it explicitly:
+  const ccw = [];
+  const e0 = q8EdgePoints(elem, nodes, 0, NP);     // (-1,-1) → (+1,-1)
+  const e1 = q8EdgePoints(elem, nodes, 1, NP);     // (+1,-1) → (+1,+1)
+  const e2 = q8EdgePoints(elem, nodes, 2, NP).slice().reverse();
+                                                   // (+1,+1) → (-1,+1)
+  const e3 = q8EdgePoints(elem, nodes, 3, NP).slice().reverse();
+                                                   // (-1,+1) → (-1,-1)
+  for (const p of e0) ccw.push(p);
+  for (const p of e1.slice(1)) ccw.push(p);
+  for (const p of e2.slice(1)) ccw.push(p);
+  for (const p of e3.slice(1, -1)) ccw.push(p);
+
+  ctx.beginPath();
+  ctx.moveTo(tx(ccw[0][0]), ty(ccw[0][1]));
+  for (let i=1;i<ccw.length;i++)
+    ctx.lineTo(tx(ccw[i][0]), ty(ccw[i][1]));
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+
+// Fill a Q8 with a colour field by subdividing into NS×NS quads in (ξ,η)
+function drawQ8ColorField(ctx, elem, nodes, disp, tx, ty,
+                          fieldFn, vmn, vmx) {
+  const NS = 6;     // 6x6 sub-patches
+  for (let i=0;i<NS;i++) {
+    for (let j=0;j<NS;j++) {
+      const xi0 = -1 + 2*i/NS,     et0 = -1 + 2*j/NS;
+      const xi1 = -1 + 2*(i+1)/NS, et1 = -1 + 2*(j+1)/NS;
+      const xic = (xi0+xi1)/2, etc = (et0+et1)/2;
+      const val = fieldFn(xi0, et0, xi1, et1, xic, etc);
+      const p00 = q8Point(elem, nodes, xi0, et0);
+      const p10 = q8Point(elem, nodes, xi1, et0);
+      const p11 = q8Point(elem, nodes, xi1, et1);
+      const p01 = q8Point(elem, nodes, xi0, et1);
+      ctx.beginPath();
+      ctx.moveTo(tx(p00[0]), ty(p00[1]));
+      ctx.lineTo(tx(p10[0]), ty(p10[1]));
+      ctx.lineTo(tx(p11[0]), ty(p11[1]));
+      ctx.lineTo(tx(p01[0]), ty(p01[1]));
+      ctx.closePath();
+      const tt = (val - vmn) / (vmx - vmn || 1);
+      ctx.fillStyle = cmap(tt);
+      ctx.fill();
+    }
+  }
+}
+
+function redraw() {
+  const canvas = document.getElementById('main-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 32;
+  const CH = 480;
+  canvas.width = W; canvas.height = CH;
+  ctx.clearRect(0, 0, W, CH);
+  if (!S.nodes.length) return;
+
+  // bounding box
+  let xmn=Infinity,xmx=-Infinity,ymn=Infinity,ymx=-Infinity;
+  for (const n of S.nodes) {
+    xmn=Math.min(xmn,n.x); xmx=Math.max(xmx,n.x);
+    ymn=Math.min(ymn,n.y); ymx=Math.max(ymx,n.y);
+  }
+  const plotH = CH - 55, pad = 45;
+  const dx=xmx-xmn||1, dy=ymx-ymn||1;
+  const sc = Math.min((W-2*pad)/dx, (plotH-2*pad)/dy);
+  const ox = pad + ((W-2*pad)-dx*sc)/2;
+  const oy = plotH - pad;
+  const tx = x => ox + (x-xmn)*sc;
+  const ty = y => oy - (y-ymn)*sc;
+  S.transform = { xmn, ymn, sc, ox, oy };
+
+  const vm = S.viewMode;
+  const d  = S.disp;
+  const dsc = S.autoScale * (+document.getElementById('disp-scale').value);
+  document.getElementById('scale-slider').style.display =
+    (vm === 'deformed' && d) ? 'flex' : 'none';
+
+  if (vm === 'mesh') {
+    for (const elem of S.elems)
+      drawQ8Outline(ctx, elem, S.nodes, tx, ty, '#666', 0.8, '#e8f0fe');
+    drawNodes(ctx, tx, ty);
+    drawBCs(ctx, tx, ty);
+    drawLoadProfile(ctx, tx, ty, W, plotH);
+    infoText(ctx,
+      `${S.nodes.length} nodes | ${S.elems.length} Q8 elements | ` +
+      `${S.nodes.length*2} DOFs`, W, CH);
+  } else if (vm === 'deformed') {
+    // undeformed (ghost)
+    for (const elem of S.elems)
+      drawQ8Outline(ctx, elem, S.nodes, tx, ty, '#ddd', 0.6);
+    // deformed
+    const NP = 6;
+    for (const elem of S.elems) {
+      const ccw = [];
+      for (let side=0; side<4; side++) {
+        const pts = [];
+        for (let k=0; k<=NP; k++) {
+          const s = -1 + 2*k/NP;
+          let xi, et;
+          if (side === 0) { xi = s; et = -1; }
+          else if (side === 1) { xi = 1; et = s; }
+          else if (side === 2) { xi = s; et = 1; }
+          else { xi = -1; et = s; }
+          pts.push(q8PointDef(elem, S.nodes, d, dsc, xi, et));
+        }
+        if (side === 0) ccw.push(...pts);
+        else if (side === 1) ccw.push(...pts.slice(1));
+        else if (side === 2) ccw.push(...pts.slice().reverse().slice(1));
+        else ccw.push(...pts.slice().reverse().slice(1, -1));
+      }
+      ctx.beginPath();
+      ctx.moveTo(tx(ccw[0][0]), ty(ccw[0][1]));
+      for (let i=1;i<ccw.length;i++)
+        ctx.lineTo(tx(ccw[i][0]), ty(ccw[i][1]));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(59,130,246,0.12)';
+      ctx.fill();
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    infoText(ctx, `Deformation scale: ${dsc.toFixed(1)}×`, W, CH);
+  } else {
+    // Field contour
+    if (!S.elemRes) return;
+    let vmn, vmx, label;
+    let elemVal = null;  // value per element if using constant colour
+    const isDisp = (vm==='disp_mag' || vm==='ux' || vm==='uy');
+    if (isDisp) {
+      // Per-element: use vertex min/max to set range
+      let gmn=Infinity, gmx=-Infinity;
+      for (let i=0; i<S.nodes.length; i++) {
+        let v;
+        if (vm === 'ux') v = d[2*i];
+        else if (vm === 'uy') v = d[2*i+1];
+        else v = Math.hypot(d[2*i], d[2*i+1]);
+        if (v < gmn) gmn = v;
+        if (v > gmx) gmx = v;
+      }
+      vmn = gmn; vmx = gmx;
+      label = {ux:'u', uy:'v', disp_mag:'|d|'}[vm];
+    } else {
+      const key = {sig_x:'sig_x', sig_y:'sig_y',
+                   tau_xy:'tau_xy', sig_vm:'vonMises'}[vm];
+      elemVal = S.elemRes.map(r =>
+        key==='sig_x' ? r.sig[0] :
+        key==='sig_y' ? r.sig[1] :
+        key==='tau_xy'? r.sig[2] : r.vonMises);
+      vmn = Math.min(...elemVal); vmx = Math.max(...elemVal);
+      label = {sig_x:'σx', sig_y:'σy', tau_xy:'τxy', sig_vm:'σvm'}[vm];
+    }
+    const range = vmx - vmn || 1;
+    for (let e=0; e<S.elems.length; e++) {
+      const elem = S.elems[e];
+      if (isDisp) {
+        drawQ8ColorField(ctx, elem, S.nodes, d, tx, ty,
+          (xi0,et0,xi1,et1,xc,yc) =>
+            q8PointField(elem, S.nodes, d, xc, yc, vm), vmn, vmx);
+      } else {
+        // Constant per element
+        const tt = (elemVal[e] - vmn) / range;
+        drawQ8Outline(ctx, elem, S.nodes, tx, ty,
+                      'rgba(0,0,0,0.08)', 0.4, cmap(tt));
+      }
+    }
+    // Color bar
+    const bx=pad, by=plotH+15, bw=W-2*pad, bh=16;
+    for (let i=0;i<bw;i++) {
+      ctx.fillStyle=cmap(i/bw);
+      ctx.fillRect(bx+i,by,1,bh);
+    }
+    ctx.strokeStyle='#333'; ctx.lineWidth=1;
+    ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle='#333'; ctx.font='11px monospace';
+    ctx.textAlign='left';  ctx.fillText(vmn.toExponential(2), bx, by+bh+13);
+    ctx.textAlign='right'; ctx.fillText(vmx.toExponential(2), bx+bw, by+bh+13);
+    ctx.textAlign='center'; ctx.fillText(label, bx+bw/2, by-4);
+  }
+  if (S.selectedElem !== null && S.elems[S.selectedElem]) {
+    drawQ8Outline(ctx, S.elems[S.selectedElem], S.nodes, tx, ty,
+                  '#f59e0b', 3.0);
+    // label element centroid
+    const c = q8Point(S.elems[S.selectedElem], S.nodes, 0, 0);
+    ctx.fillStyle = '#b45309';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('e' + (S.selectedElem+1), tx(c[0]), ty(c[1])-6);
+  }
+}
+
+function drawNodes(ctx, tx, ty) {
+  // draw corner nodes bigger, midside smaller
+  // distinguish by which nodes are used as corners vs midsides in ANY
+  // element: corner nodes come from elem.nds[0..3], midsides from [4..7]
+  const isCorner = new Set(), isMid = new Set();
+  for (const elem of S.elems) {
+    for (let k=0;k<4;k++) isCorner.add(elem.nds[k]);
+    for (let k=4;k<8;k++) isMid.add(elem.nds[k]);
+  }
+  for (let i=0;i<S.nodes.length;i++) {
+    const n = S.nodes[i];
+    const x = tx(n.x), y = ty(n.y);
+    ctx.beginPath();
+    if (isCorner.has(i)) {
+      ctx.arc(x, y, 2.8, 0, 2*Math.PI);
+      ctx.fillStyle = '#1e3a5f';
+    } else {
+      ctx.arc(x, y, 1.8, 0, 2*Math.PI);
+      ctx.fillStyle = '#ea580c';
+    }
+    ctx.fill();
+  }
+}
+function drawBCs(ctx, tx, ty) {
+  const fs = new Set(S.fixedDofs);
+  for (let i=0;i<S.nodes.length;i++) {
+    const hu = fs.has(2*i), hv = fs.has(2*i+1);
+    if (!(hu && hv)) continue;
+    const x = tx(S.nodes[i].x), y = ty(S.nodes[i].y);
+    ctx.beginPath();
+    ctx.moveTo(x-5,y+9); ctx.lineTo(x+5,y+9); ctx.lineTo(x,y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(220,50,50,0.25)'; ctx.fill();
+    ctx.strokeStyle = '#c33'; ctx.lineWidth = 1; ctx.stroke();
+    for (let h=-5;h<=5;h+=3) {
+      ctx.beginPath();
+      ctx.moveTo(x+h,y+10); ctx.lineTo(x+h-3,y+13);
+      ctx.strokeStyle='#c33'; ctx.lineWidth=0.5; ctx.stroke();
+    }
+  }
+}
+function drawLoadProfile(ctx, tx, ty, canvasW, canvasH) {
+  // Draw arrows along the top edge proportional to the local q(x)
+  const q_fn = getLoadFn();
+  const W = +document.getElementById('inp-W').value;
+  const H = +document.getElementById('inp-H').value;
+  const NA = 14;   // number of sample arrows
+  // find max |q| for scaling
+  let qmax = 0;
+  for (let k=0;k<=NA;k++) {
+    const x = k*W/NA;
+    const q = Math.abs(q_fn(x, H));
+    if (q > qmax) qmax = q;
+  }
+  const ARROW_MAX = 28;  // px
+  for (let k=0;k<=NA;k++) {
+    const x = k*W/NA;
+    const q = q_fn(x, H);
+    if (Math.abs(q) < 1e-12) continue;
+    const h = (q/qmax) * ARROW_MAX;   // signed
+    const px = tx(x), py = ty(H);
+    const dy = -Math.sign(q) * Math.abs(h);
+    const startY = py + dy;
+    const endY   = py - Math.sign(q)*3;
+    ctx.beginPath();
+    ctx.moveTo(px, startY); ctx.lineTo(px, endY);
+    ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 1.6; ctx.stroke();
+    // arrowhead
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px-3, py + Math.sign(q)*-6);
+    ctx.lineTo(px+3, py + Math.sign(q)*-6);
+    ctx.closePath();
+    ctx.fillStyle = '#e11d48'; ctx.fill();
+  }
+  ctx.fillStyle = '#9f1239'; ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('q(x)', tx(W/2), ty(H) - ARROW_MAX - 6);
+}
+function infoText(ctx, txt, W, H) {
+  ctx.fillStyle='#888'; ctx.font='11px sans-serif';
+  ctx.textAlign='left'; ctx.fillText(txt, 8, H-6);
+}
+
+// ============================================================
+//  VIEW & UI
+// ============================================================
+function setView(m) {
+  S.viewMode = m;
+  const btns = document.querySelectorAll('#view-buttons button');
+  btns.forEach((b,i) => b.className =
+    VIEW_MODES[i]===m ? 'btn-active' : 'btn-secondary');
+  redraw();
+}
+function setAnalysisType(type) {
+  S.analysisType = type;
+  document.getElementById('btn-ps').className =
+    type==='stress' ? 'btn-active' : 'btn-secondary';
+  document.getElementById('btn-pn').className =
+    type==='strain' ? 'btn-active' : 'btn-secondary';
+}
+function togglePanel(id) {
+  const el = document.getElementById(id);
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    if (id === 'solution-box') renderSolTable();
+    if (id === 'matrix-box') renderMatrix();
+    if (id === 'elem-box')   renderElemTable();
+    if (id === 'element-box') renderElementInfo(S.selectedElem);
+  } else el.style.display = 'none';
+}
+function showSummary() {
+  const div = document.getElementById('results-summary');
+  if (!S.disp) { div.innerHTML=''; return; }
+  const d = S.disp, n = S.nodes.length;
+  let mxD=0, mxN=0;
+  for (let i=0;i<n;i++) {
+    const mag = Math.hypot(d[2*i], d[2*i+1]);
+    if (mag > mxD) { mxD = mag; mxN = i; }
+  }
+  const mxVM = Math.max(...S.elemRes.map(r => r.vonMises));
+  const eVM = S.elemRes.findIndex(r => r.vonMises === mxVM);
+  const mxSx = Math.max(...S.elemRes.map(r => r.sig[0]));
+  const mnSx = Math.min(...S.elemRes.map(r => r.sig[0]));
+  div.innerHTML = `<label style="margin-top:14px">Results</label><table>
+    <tr><td>Nodes</td><td>${n}</td></tr>
+    <tr><td>Q8 elements</td><td>${S.elems.length}</td></tr>
+    <tr><td>DOFs</td><td>${n*2}</td></tr>
+    <tr><td>Fixed DOFs</td><td>${S.fixedDofs.length}</td></tr>
+    <tr><td>Max |d|</td><td>${mxD.toExponential(4)}
+        <br><small>node ${mxN+1}</small></td></tr>
+    <tr><td>Max &sigma;<sub>vm</sub></td><td>${mxVM.toExponential(4)}
+        <br><small>elem ${eVM+1}</small></td></tr>
+    <tr><td>&sigma;<sub>x</sub> range</td>
+        <td>[${mnSx.toExponential(3)},<br>
+             ${mxSx.toExponential(3)}]</td></tr>
+    </table>`;
+}
+
+function renderSolTable() {
+  const div = document.getElementById('solution-box');
+  if (!S.disp) { div.innerHTML='Run analysis first.'; return; }
+  const d = S.disp, n = S.nodes.length;
+  let h = '<table><thead><tr><th>Node</th><th>x</th><th>y</th>' +
+          '<th>u</th><th>v</th><th>|d|</th></tr></thead><tbody>';
+  for (let i=0;i<n;i++) {
+    const nd = S.nodes[i];
+    const u = d[2*i], v = d[2*i+1];
+    h += `<tr><td>${i+1}</td>` +
+         `<td>${nd.x.toFixed(3)}</td>` +
+         `<td>${nd.y.toFixed(3)}</td>` +
+         `<td>${u.toExponential(3)}</td>` +
+         `<td>${v.toExponential(3)}</td>` +
+         `<td>${Math.hypot(u,v).toExponential(3)}</td></tr>`;
+  }
+  div.innerHTML = h + '</tbody></table>';
+}
+
+function renderElemTable() {
+  const div = document.getElementById('elem-box');
+  if (!S.elemRes) { div.innerHTML='Run analysis first.'; return; }
+  let h = '<table><thead><tr><th>Elem</th><th>ε<sub>x</sub></th>' +
+          '<th>ε<sub>y</sub></th><th>γ<sub>xy</sub></th>' +
+          '<th>σ<sub>x</sub></th><th>σ<sub>y</sub></th>' +
+          '<th>τ<sub>xy</sub></th><th>σ<sub>vm</sub></th>' +
+          '</tr></thead><tbody>';
+  for (let e=0;e<S.elemRes.length;e++) {
+    const r = S.elemRes[e];
+    h += `<tr><td>${e+1}</td>` +
+         `<td>${r.eps[0].toExponential(3)}</td>` +
+         `<td>${r.eps[1].toExponential(3)}</td>` +
+         `<td>${r.eps[2].toExponential(3)}</td>` +
+         `<td>${r.sig[0].toExponential(3)}</td>` +
+         `<td>${r.sig[1].toExponential(3)}</td>` +
+         `<td>${r.sig[2].toExponential(3)}</td>` +
+         `<td>${r.vonMises.toExponential(3)}</td></tr>`;
+  }
+  div.innerHTML = h + '</tbody></table>';
+}
+
+function renderMatrix() {
+  const box = document.getElementById('matrix-box');
+  if (!S.K) { box.innerHTML='Run analysis first.'; return; }
+  const K = S.K, n = K.length;
+  const cellSz = Math.max(1, Math.min(6, Math.floor(580/n)));
+  const sz = n*cellSz;
+  box.innerHTML = `<canvas id="matrix-heatmap" width="${sz}" height="${sz}"
+    style="width:${Math.min(sz,580)}px;height:${Math.min(sz,580)}px"></canvas>
+    <div style="font-size:0.75rem;color:#888;margin-top:4px">
+    ${n}&times;${n} global stiffness (log-scaled, hover for values)</div>`;
+  const cv = document.getElementById('matrix-heatmap');
+  const ctx = cv.getContext('2d');
+  let mx = 0;
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) {
+    const a = Math.abs(K[i][j]); if (a > mx) mx = a;
+  }
+  if (mx === 0) mx = 1;
+  const logMx = Math.log10(mx);
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) {
+    const a = Math.abs(K[i][j]);
+    if (a === 0) { ctx.fillStyle = '#fff'; }
+    else {
+      const t = (Math.log10(a) - (logMx - 6)) / 6;  // 6 decades
+      ctx.fillStyle = cmap(Math.max(0, Math.min(1, t)));
+    }
+    ctx.fillRect(j*cellSz, i*cellSz, cellSz, cellSz);
+  }
+  cv.addEventListener('mousemove', function(e) {
+    const rect = cv.getBoundingClientRect();
+    const sx = cv.width/rect.width, sy = cv.height/rect.height;
+    const ci = Math.floor((e.clientY-rect.top )*sy/cellSz);
+    const cj = Math.floor((e.clientX-rect.left)*sx/cellSz);
+    if (ci>=0 && ci<n && cj>=0 && cj<n)
+      cv.title = `K[${ci+1},${cj+1}] = ${K[ci][cj].toExponential(4)}`;
+  });
+}
+
+// ============================================================
+//  ELEMENT SELECTION (click a Q8 in the canvas to inspect it)
+// ============================================================
+function elemPolygon(elem, nodes, NP) {
+  NP = NP || 8;
+  const e0 = q8EdgePoints(elem, nodes, 0, NP);
+  const e1 = q8EdgePoints(elem, nodes, 1, NP);
+  const e2 = q8EdgePoints(elem, nodes, 2, NP).slice().reverse();
+  const e3 = q8EdgePoints(elem, nodes, 3, NP).slice().reverse();
+  const ccw = [];
+  for (const p of e0) ccw.push(p);
+  for (const p of e1.slice(1)) ccw.push(p);
+  for (const p of e2.slice(1)) ccw.push(p);
+  for (const p of e3.slice(1, -1)) ccw.push(p);
+  return ccw;
+}
+function pointInPoly(poly, x, y) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1];
+    const xj = poly[j][0], yj = poly[j][1];
+    if (((yi > y) !== (yj > y)) &&
+        (x < (xj - xi) * (y - yi) / (yj - yi) + xi))
+      inside = !inside;
+  }
+  return inside;
+}
+function onCanvasClick(ev) {
+  if (!S.transform || !S.elems.length) return;
+  const canvas = document.getElementById('main-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const px = (ev.clientX - rect.left) * canvas.width / rect.width;
+  const py = (ev.clientY - rect.top ) * canvas.height / rect.height;
+  const { xmn, ymn, sc, ox, oy } = S.transform;
+  const x = (px - ox)/sc + xmn;
+  const y = ymn + (oy - py)/sc;
+  let found = null;
+  for (let e = 0; e < S.elems.length; e++) {
+    const poly = elemPolygon(S.elems[e], S.nodes, 8);
+    if (pointInPoly(poly, x, y)) { found = e; break; }
+  }
+  if (found !== null) {
+    S.selectedElem = found;
+    document.getElementById('element-box').style.display = 'block';
+    renderElementInfo(found);
+    redraw();
+  }
+}
+function clearElementSelection() {
+  S.selectedElem = null;
+  renderElementInfo(null);
+  redraw();
+}
+function renderElementInfo(eIdx) {
+  const box = document.getElementById('element-box');
+  if (eIdx === null || !S.eData) {
+    box.innerHTML =
+      '<div style="padding:8px 4px;color:#888;font-size:0.82rem">' +
+      'Click any element in the canvas above to inspect its nodes, ' +
+      'Jacobian, B matrix, and k<sup>(e)</sup>.</div>';
+    return;
+  }
+  const ed = S.eData[eIdx];
+  const elem = ed.elem;
+  const xe = elem.nds.map(i => S.nodes[i].x);
+  const ye = elem.nds.map(i => S.nodes[i].y);
+  const exp3 = v => (Math.abs(v) < 1e-14 ? '0' : v.toExponential(3));
+  const exp2 = v => (Math.abs(v) < 1e-14 ? '0' : v.toExponential(2));
+
+  const jacAt = (xi, et) => {
+    const { ds, dt } = dN_Q8(xi, et);
+    let J00=0, J01=0, J10=0, J11=0;
+    for (let i=0;i<8;i++) {
+      J00 += ds[i]*xe[i]; J01 += ds[i]*ye[i];
+      J10 += dt[i]*xe[i]; J11 += dt[i]*ye[i];
+    }
+    return { J00, J01, J10, J11, detJ: J00*J11 - J01*J10 };
+  };
+
+  const parts = [];
+  const petalNames = ['right','top','left','bottom'];
+  parts.push(`
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:6px 0;border-bottom:2px solid #2563eb;margin-bottom:6px">
+      <b style="color:#1e3a5f;font-size:0.9rem">
+        Element ${eIdx+1} &middot; ${petalNames[elem.petal]} petal
+        (i<sub>r</sub>=${elem.ir}, i<sub>c</sub>=${elem.ic})
+      </b>
+      <button class="btn-secondary" onclick="clearElementSelection()"
+              style="padding:3px 8px;font-size:0.72rem">Deselect</button>
+    </div>
+  `);
+
+  // Nodes
+  const types = ['corner','corner','corner','corner',
+                 'midside','midside','midside','midside'];
+  const loc = ['(-1,-1)','(+1,-1)','(+1,+1)','(-1,+1)',
+               '( 0,-1)','(+1, 0)','( 0,+1)','(-1, 0)'];
+  let ndT = '<table style="border-collapse:collapse;font-size:0.74rem;width:100%">' +
+    '<thead><tr>' +
+    '<th>Local</th><th>Type</th><th>(&xi;,&eta;)</th><th>Global</th>' +
+    '<th>x</th><th>y</th><th>u</th><th>v</th>' +
+    '</tr></thead><tbody>';
+  for (let i = 0; i < 8; i++) {
+    const nid = elem.nds[i];
+    const nd = S.nodes[nid];
+    const u = S.disp ? S.disp[2*nid] : 0;
+    const v = S.disp ? S.disp[2*nid+1] : 0;
+    const bg = i<4 ? '#fff' : '#fef3c7';
+    ndT += `<tr style="background:${bg}">
+      <td>${i+1}</td>
+      <td>${types[i]}</td>
+      <td style="font-family:monospace">${loc[i]}</td>
+      <td>${nid+1}</td>
+      <td>${nd.x.toFixed(4)}</td>
+      <td>${nd.y.toFixed(4)}</td>
+      <td>${exp3(u)}</td>
+      <td>${exp3(v)}</td>
+    </tr>`;
+  }
+  ndT += '</tbody></table>';
+  parts.push('<div style="font-weight:600;font-size:0.78rem;color:#555;' +
+             'margin-top:4px">Nodes &amp; nodal displacements</div>');
+  parts.push(ndT);
+
+  // Material D (3x3)
+  let dT = '<table style="border-collapse:collapse;font-size:0.74rem;' +
+           'margin-top:4px;font-family:monospace"><tbody>';
+  for (let i=0;i<3;i++) {
+    dT += '<tr>';
+    for (let j=0;j<3;j++)
+      dT += `<td style="padding:2px 10px;border:1px solid #eee">${exp3(ed.D[i][j])}</td>`;
+    dT += '</tr>';
+  }
+  dT += '</tbody></table>';
+  parts.push('<div style="font-weight:600;font-size:0.78rem;color:#555;' +
+             'margin-top:10px">Constitutive matrix D (3&times;3)</div>');
+  parts.push(dT);
+
+  // Jacobian at centroid + 9 Gauss points
+  let jT = '<table style="border-collapse:collapse;font-size:0.72rem;' +
+           'margin-top:4px"><thead><tr>' +
+    '<th>Pt</th><th>&xi;</th><th>&eta;</th>' +
+    '<th>J<sub>11</sub></th><th>J<sub>12</sub></th>' +
+    '<th>J<sub>21</sub></th><th>J<sub>22</sub></th>' +
+    '<th>|J|</th></tr></thead><tbody>';
+  const cJ = jacAt(0, 0);
+  jT += `<tr style="background:#fef3c7">
+    <td>centroid</td><td>0.000</td><td>0.000</td>
+    <td>${exp3(cJ.J00)}</td><td>${exp3(cJ.J01)}</td>
+    <td>${exp3(cJ.J10)}</td><td>${exp3(cJ.J11)}</td>
+    <td><b>${exp3(cJ.detJ)}</b></td></tr>`;
+  for (let gidx = 0; gidx < ed.BGauss.length; gidx++) {
+    const g = ed.BGauss[gidx];
+    const j = jacAt(g.xi, g.et);
+    jT += `<tr>
+      <td>g${gidx+1}</td>
+      <td>${g.xi.toFixed(3)}</td><td>${g.et.toFixed(3)}</td>
+      <td>${exp3(j.J00)}</td><td>${exp3(j.J01)}</td>
+      <td>${exp3(j.J10)}</td><td>${exp3(j.J11)}</td>
+      <td>${exp3(j.detJ)}</td></tr>`;
+  }
+  jT += '</tbody></table>';
+  parts.push('<div style="font-weight:600;font-size:0.78rem;color:#555;' +
+             'margin-top:10px">Jacobian at centroid &amp; 3&times;3 Gauss points' +
+             '</div>');
+  parts.push(jT);
+
+  // B at centroid (3 x 16)
+  let bHead = '<tr><th></th>';
+  for (let i=0;i<8;i++) bHead += `<th colspan="2">n${i+1}</th>`;
+  bHead += '</tr><tr><th></th>';
+  for (let i=0;i<8;i++) bHead += '<th>u</th><th>v</th>';
+  bHead += '</tr>';
+  const rowLabels = ['&epsilon;<sub>x</sub>','&epsilon;<sub>y</sub>',
+                     '&gamma;<sub>xy</sub>'];
+  let bBody = '';
+  for (let i=0;i<3;i++) {
+    bBody += `<tr><td style="font-family:sans-serif;font-weight:600;` +
+             `background:#eef">${rowLabels[i]}</td>`;
+    for (let j=0;j<16;j++)
+      bBody += `<td style="padding:2px 5px;border:1px solid #f0f0f0">` +
+               `${exp2(ed.Bc[i][j])}</td>`;
+    bBody += '</tr>';
+  }
+  parts.push('<div style="font-weight:600;font-size:0.78rem;color:#555;' +
+             'margin-top:10px">B matrix at centroid (3&times;16)</div>');
+  parts.push(`<div style="overflow-x:auto"><table style="border-collapse:collapse;
+    font-size:0.68rem;margin-top:4px;font-family:monospace">
+    <thead>${bHead}</thead><tbody>${bBody}</tbody></table></div>`);
+
+  // ke heatmap + size note
+  const kSize = 336;
+  parts.push('<div style="font-weight:600;font-size:0.78rem;color:#555;' +
+             'margin-top:10px">Element stiffness k<sup>(e)</sup> (16&times;16)' +
+             '</div>');
+  parts.push(
+    `<canvas id="ke-heatmap" width="${kSize}" height="${kSize}"
+             style="border:1px solid #bbb;image-rendering:pixelated;
+                    display:block;margin-top:4px"></canvas>
+     <div style="font-size:0.7rem;color:#888;margin-top:2px">
+       Log-scaled |k<sup>(e)</sup><sub>ij</sub>| (6 decades). Rows/cols are
+       DOF indices: n1.u, n1.v, n2.u, n2.v, ...  Hover for the exact value.
+     </div>`);
+
+  box.innerHTML = parts.join('');
+
+  const cv = document.getElementById('ke-heatmap');
+  const cctx = cv.getContext('2d');
+  const cs = kSize / 16;
+  let mx = 0;
+  for (let i=0;i<16;i++) for (let j=0;j<16;j++) {
+    const a = Math.abs(ed.ke[i][j]); if (a > mx) mx = a;
+  }
+  if (mx === 0) mx = 1;
+  const logMx = Math.log10(mx);
+  for (let i=0;i<16;i++) for (let j=0;j<16;j++) {
+    const a = Math.abs(ed.ke[i][j]);
+    if (a === 0) cctx.fillStyle = '#fff';
+    else {
+      const t = (Math.log10(a) - (logMx - 6)) / 6;
+      cctx.fillStyle = cmap(Math.max(0, Math.min(1, t)));
+    }
+    cctx.fillRect(j*cs, i*cs, cs, cs);
+  }
+  cctx.strokeStyle = '#ddd'; cctx.lineWidth = 0.5;
+  for (let i=0;i<=16;i++) {
+    cctx.beginPath(); cctx.moveTo(0, i*cs);
+    cctx.lineTo(kSize, i*cs); cctx.stroke();
+    cctx.beginPath(); cctx.moveTo(i*cs, 0);
+    cctx.lineTo(i*cs, kSize); cctx.stroke();
+  }
+  cv.onmousemove = function(e) {
+    const rect = cv.getBoundingClientRect();
+    const sx = cv.width/rect.width, sy = cv.height/rect.height;
+    const ci = Math.floor((e.clientY-rect.top)*sy/cs);
+    const cj = Math.floor((e.clientX-rect.left)*sx/cs);
+    if (ci>=0 && ci<16 && cj>=0 && cj<16) {
+      const dofName = k => (k%2===0 ? 'n'+(k/2+1)+'.u' : 'n'+((k-1)/2+1)+'.v');
+      cv.title = `k[${dofName(ci)}, ${dofName(cj)}] = ` +
+                 `${ed.ke[ci][cj].toExponential(4)}`;
+    }
+  };
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('resize', () => redraw());
+document.getElementById('main-canvas')
+        .addEventListener('click', onCanvasClick);
+document.getElementById('main-canvas').style.cursor = 'crosshair';
+loadPreset('parabolic');
+runAnalysis();
+</script>
+</body>
+</html>

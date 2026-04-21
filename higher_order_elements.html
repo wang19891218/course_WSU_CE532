@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8- and 9-Node Isoparametric Elements &mdash; CE/ME 532</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa; color: #333;
+  padding: 20px; max-width: 1500px; margin: 0 auto;
+}
+h1 { text-align: center; font-size: 1.45rem; margin-bottom: 4px; }
+.subtitle {
+  text-align: center; color: #666;
+  margin-bottom: 14px; font-size: 0.92rem;
+}
+.back-link {
+  display: inline-block; font-size: 0.82rem; color: #2563eb;
+  text-decoration: none; margin-bottom: 8px;
+}
+.back-link:hover { text-decoration: underline; }
+
+.top-panel {
+  background: #fff; border-radius: 8px; padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  margin-bottom: 16px;
+}
+.viz-row {
+  display: flex; gap: 12px;
+  align-items: center; justify-content: center; flex-wrap: wrap;
+}
+.viz-block { flex: 1 1 380px; max-width: 560px; display: flex;
+             flex-direction: column; align-items: center; }
+.viz-block h3 {
+  font-size: 0.9rem; color: #1f3b7a; margin-bottom: 6px;
+  font-weight: 700;
+}
+canvas.viz {
+  width: 100%; max-width: 500px; height: 380px;
+  border: 1px solid #ddd; border-radius: 6px; background: #fafbfc;
+  display: block;
+}
+.arrow-col { flex: 0 0 60px; text-align: center;
+             color: #666; font-size: 1.8rem; user-select: none; }
+
+.controls {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; margin-top: 10px;
+}
+.controls button {
+  padding: 6px 12px; border: none; border-radius: 5px;
+  cursor: pointer; font-size: 0.78rem; font-weight: 600;
+  background: #e5e7eb; color: #333;
+}
+.controls button:hover { background: #d1d5db; }
+.controls button.primary { background: #3b82f6; color: #fff; }
+.controls button.primary:hover { background: #2563eb; }
+.controls label {
+  font-size: 0.78rem; color: #555; display: flex;
+  align-items: center; gap: 4px;
+}
+.elem-switch {
+  display: inline-flex; gap: 0; border-radius: 5px; overflow: hidden;
+  border: 1px solid #94a3b8;
+}
+.elem-switch button {
+  padding: 6px 14px; border: none; cursor: pointer;
+  font-size: 0.82rem; font-weight: 700;
+  background: #e5e7eb; color: #1e3a5f; border-radius: 0;
+}
+.elem-switch button.active {
+  background: #1e3a5f; color: #fff;
+}
+.instructions {
+  font-size: 0.78rem; color: #888; font-style: italic;
+  text-align: center; margin-top: 8px;
+}
+
+.deriv-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 1100px) {
+  .deriv-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.step {
+  background: #fff; border-radius: 8px; padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.step h2 {
+  font-size: 0.98rem; color: #1f3b7a;
+  border-bottom: 2px solid #dde2ee; padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+.step p {
+  font-size: 0.85rem; line-height: 1.55; margin-bottom: 7px;
+}
+
+.math-block {
+  font-family: 'Cambria Math', Georgia, serif;
+  font-size: 0.95rem;
+  margin: 6px 0 8px 14px;
+  line-height: 1.6;
+}
+.math-inline { font-family: 'Cambria Math', Georgia, serif; }
+.num {
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem; color: #1a365d;
+}
+.num-box {
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 4px; padding: 6px 10px;
+  margin: 4px 0 8px 14px; font-family: 'Courier New', monospace;
+  font-size: 0.80rem; color: #1a365d; overflow-x: auto;
+}
+.num-box .hi { color: #c04c2f; font-weight: 700; }
+
+.mat {
+  display: inline-block; position: relative;
+  padding: 2px 10px; vertical-align: middle;
+}
+.mat::before, .mat::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 6px;
+  border: solid 1.5px #222;
+}
+.mat::before { left: 0; border-right: none; }
+.mat::after  { right: 0; border-left: none; }
+.mat table { border-collapse: collapse; }
+.mat td {
+  padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;
+  font-family: 'Courier New', monospace; font-size: 0.78rem;
+  min-width: 46px; color: #1a365d;
+}
+.mat.sym td { font-family: 'Cambria Math', Georgia, serif;
+              font-style: italic; font-size: 0.9rem; color: #222; }
+.eq { margin: 0 6px; }
+
+.note {
+  background: #fff8e1; border-left: 3px solid #f4b400;
+  padding: 8px 12px; font-size: 0.82rem; margin: 8px 0;
+  border-radius: 4px; line-height: 1.45;
+}
+.key {
+  background: #e0f2fe; border-left: 3px solid #0284c7;
+  padding: 8px 12px; font-size: 0.82rem; margin: 8px 0;
+  border-radius: 4px; line-height: 1.45;
+}
+.bad {
+  background: #fee2e2; border-left: 3px solid #dc2626;
+  padding: 8px 12px; font-size: 0.82rem; margin: 8px 0;
+  border-radius: 4px; line-height: 1.45;
+}
+
+.probe-readout {
+  display: inline-flex; gap: 14px; flex-wrap: wrap;
+  background: #f1f5f9; border-radius: 5px; padding: 6px 12px;
+  font-family: 'Courier New', monospace; font-size: 0.82rem;
+  color: #1a365d; margin-top: 6px;
+}
+.probe-readout span { white-space: nowrap; }
+.probe-readout .k { color: #64748b; }
+.probe-readout input.probe-input {
+  font-family: 'Courier New', monospace; font-size: 0.82rem;
+  color: #1a365d; width: 72px; padding: 2px 4px;
+  border: 1px solid #94a3b8; border-radius: 3px; background: #fff;
+  text-align: right;
+}
+.probe-readout input.probe-input:focus {
+  outline: none; border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.25);
+}
+
+.shape-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.80rem; margin-top: 6px;
+}
+.shape-table th, .shape-table td {
+  padding: 4px 8px; border-bottom: 1px solid #e2e8f0;
+  text-align: right; font-family: 'Courier New', monospace;
+}
+.shape-table th {
+  background: #f1f5f9; color: #334155; text-align: center;
+  font-weight: 600;
+}
+.shape-table td:first-child { text-align: center; color: #475569; }
+.shape-table .row-center td { background: #fef3c7; }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="index.html">&larr; Back to Interactive Tools</a>
+
+<h1>8- and 9-Node Isoparametric Elements &mdash; Curved Edges</h1>
+<p class="subtitle">
+  CE/ME&nbsp;532 &middot; Section&nbsp;3.5 &middot;
+  Switch between the <b>Q8 serendipity</b> and
+  <b>Q9 Lagrangian</b> element. Drag the
+  <b style="color:#dc2626">red corner nodes</b>, the
+  <b style="color:#ea580c">orange mid-side nodes</b>, or the
+  <b style="color:#7c3aed">purple centre node (Q9)</b> to bend the edges
+  and interior. Drag the <b style="color:#16a34a">green probe</b> to
+  sample the shape functions and&nbsp;<span class="math-inline">|J|</span>.
+</p>
+
+<div class="top-panel">
+  <div class="viz-row">
+    <div class="viz-block">
+      <h3>Parent element &nbsp;
+        (<span class="math-inline">&xi;,&eta;</span>)&nbsp; space</h3>
+      <canvas id="cv-parent" class="viz"></canvas>
+    </div>
+    <div class="arrow-col">&rarr;</div>
+    <div class="viz-block">
+      <h3>Actual element &nbsp;
+        (<span class="math-inline">x,y</span>)&nbsp; space</h3>
+      <canvas id="cv-actual" class="viz"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+    <span class="elem-switch">
+      <button id="btn-q8" class="active" onclick="setElement(8)">Q8 Serendipity</button>
+      <button id="btn-q9" onclick="setElement(9)">Q9 Lagrangian</button>
+    </span>
+    <button onclick="loadPreset('rectangle')">Rectangle</button>
+    <button onclick="loadPreset('curved_bottom')" class="primary">Curved bottom</button>
+    <button onclick="loadPreset('barrel')">Barrel</button>
+    <button onclick="loadPreset('trapezoid')">Trapezoid</button>
+    <button onclick="loadPreset('bad_midside')">Bad mid-side</button>
+    <label>
+      <input type="checkbox" id="chk-grid" checked onchange="redrawAll()">
+      Show &xi;/&eta; grid
+    </label>
+  </div>
+
+  <div style="text-align:center; margin-top:10px;">
+    <div class="probe-readout">
+      <span><span class="k">&xi; =</span>
+        <input type="number" class="probe-input" id="rd-xi"
+               step="0.05" min="-1" max="1" value="0.000"
+               oninput="onProbeInput()"></span>
+      <span><span class="k">&eta; =</span>
+        <input type="number" class="probe-input" id="rd-eta"
+               step="0.05" min="-1" max="1" value="0.000"
+               oninput="onProbeInput()"></span>
+      <span><span class="k">x =</span> <span id="rd-x">0.000</span></span>
+      <span><span class="k">y =</span> <span id="rd-y">0.000</span></span>
+      <span><span class="k">|J| =</span> <span id="rd-detJ">0.000</span></span>
+      <span><span class="k">&Sigma;N =</span> <span id="rd-sumN">1.000</span></span>
+    </div>
+  </div>
+  <p class="instructions">
+    The blue mesh on the right is the image of
+    <span class="math-inline">&xi;</span>=const and
+    <span class="math-inline">&eta;</span>=const grid lines. With Q8/Q9
+    the image lines are parabolic, so each physical edge can curve.
+    <b style="color:#b91c1c">Red shading</b> marks the region where
+    <span class="math-inline">|J| &lt; 0</span>. Mid-side nodes push off
+    their chord midpoint more than the <b>&frac14;&ndash;rule</b> allows
+    &rArr; the Jacobian can fold.
+  </p>
+</div>
+
+<div class="deriv-grid">
+
+  <div class="step">
+    <h2>1. Node layout &amp; shape-function families</h2>
+    <p>
+      Both elements share the same <b>8 boundary nodes</b>: 4 corners and
+      4 mid-side nodes, one per edge of the parent square.
+      The <b>Q9 Lagrangian</b> adds a 9th node at the centre
+      <span class="math-inline">(&xi;,&eta;) = (0,0)</span>.
+    </p>
+    <div class="math-block">
+      <b>Q8 serendipity</b> &mdash; corners and mid-sides only:
+      <br>
+      Corners&nbsp; N<sub>i</sub> = &frac14;(1+&xi;<sub>i</sub>&xi;)
+                                     (1+&eta;<sub>i</sub>&eta;)
+                                     (&xi;<sub>i</sub>&xi;+&eta;<sub>i</sub>&eta;&minus;1)
+      <br>
+      Edge &xi;=0&nbsp;
+      N<sub>5</sub> = &frac12;(1&minus;&xi;<sup>2</sup>)(1&minus;&eta;),&nbsp;
+      N<sub>7</sub> = &frac12;(1&minus;&xi;<sup>2</sup>)(1+&eta;)
+      <br>
+      Edge &eta;=0&nbsp;
+      N<sub>6</sub> = &frac12;(1+&xi;)(1&minus;&eta;<sup>2</sup>),&nbsp;
+      N<sub>8</sub> = &frac12;(1&minus;&xi;)(1&minus;&eta;<sup>2</sup>)
+    </div>
+    <div class="math-block">
+      <b>Q9 Lagrangian</b> &mdash; tensor product of 1-D quadratic Lagrange:
+      <br>
+      L<sub>&minus;</sub>(t) = &frac12;t(t&minus;1),&nbsp;
+      L<sub>0</sub>(t) = 1&minus;t<sup>2</sup>,&nbsp;
+      L<sub>+</sub>(t) = &frac12;t(t+1)
+      <br>
+      N<sub>i</sub>(&xi;,&eta;) = L<sub>a(i)</sub>(&xi;) L<sub>b(i)</sub>(&eta;)
+    </div>
+    <div class="key">
+      <b>Key difference.</b>
+      The Q9 Lagrange space contains the full biquadratic monomials
+      &#123;1, &xi;, &eta;, &xi;&eta;, &xi;<sup>2</sup>, &eta;<sup>2</sup>,
+      &xi;<sup>2</sup>&eta;, &xi;&eta;<sup>2</sup>, &xi;<sup>2</sup>&eta;<sup>2</sup>&#125;.
+      Q8 is missing the
+      <span class="math-inline">&xi;<sup>2</sup>&eta;<sup>2</sup></span> bubble
+      &mdash; it is <i>not</i> complete to degree&nbsp;2 in
+      <span class="math-inline">&xi;&eta;</span> space.
+    </div>
+  </div>
+
+  <div class="step">
+    <h2>2. Live shape-function values at the probe</h2>
+    <p>
+      At the current <span class="math-inline">(&xi;,&eta;)</span>:
+    </p>
+    <div style="overflow-x:auto">
+      <table class="shape-table" id="tbl-N"></table>
+    </div>
+    <div class="note">
+      <b>Partition of unity check:</b>
+      <span class="math-inline">&Sigma; N<sub>i</sub></span> should equal
+      <b>1</b> at every point.
+      Live value:&nbsp;<span class="num" id="pou-val">1.000</span>.
+    </div>
+  </div>
+
+  <div class="step">
+    <h2>3. The isoparametric map</h2>
+    <p>
+      Use the <i>same</i>
+      <span class="math-inline">N<sub>i</sub></span> for geometry and
+      displacement:
+    </p>
+    <div style="text-align:center; margin: 6px 0;">
+      <span class="math-inline">x</span>
+      <span class="eq">=</span>
+      <span class="math-inline">&Sigma;<sub>i</sub> N<sub>i</sub>(&xi;,&eta;) x<sub>i</sub></span>,&nbsp;
+      <span class="math-inline">y</span>
+      <span class="eq">=</span>
+      <span class="math-inline">&Sigma;<sub>i</sub> N<sub>i</sub>(&xi;,&eta;) y<sub>i</sub></span>
+    </div>
+    <p>
+      With mid-side nodes each physical edge is the quadratic Lagrange
+      interpolation of its three nodes &mdash; a <b>parabola</b> (or a
+      straight line when the mid-side node sits on the chord midpoint).
+    </p>
+    <div class="num-box" id="nbox-map"></div>
+  </div>
+
+  <div class="step">
+    <h2>4. Jacobian at the probe</h2>
+    <p>
+      Same definition as the 4-node case, but the derivatives
+      <span class="math-inline">N<sub>i,&xi;</sub>, N<sub>i,&eta;</sub></span>
+      are now quadratic:
+    </p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="math-inline">J</span>
+      <span class="eq">=</span>
+      <span class="mat" id="mat-J"></span>
+      <span class="eq">,&nbsp; |<span class="math-inline">J</span>| =</span>
+      <span class="num" id="val-detJ"
+            style="font-size:0.95rem; font-weight:700;">0.0000</span>
+    </div>
+    <div id="jac-warn"></div>
+    <div class="note">
+      <b>Unlike Q4, </b>
+      <span class="math-inline">|J|(&xi;,&eta;)</span> here is a
+      <i>cubic</i> polynomial in <span class="math-inline">(&xi;,&eta;)</span>.
+      It can change sign even when all nodes look reasonable.
+    </div>
+  </div>
+
+  <div class="step">
+    <h2>5. Curved-edge rule: the &frac14; check</h2>
+    <p>
+      Along one edge (say <span class="math-inline">&eta;=&minus;1</span>)
+      the three active shape functions are the 1-D quadratic Lagrange
+      functions of <span class="math-inline">&xi;</span>. The edge in
+      physical space is therefore a parabola through the three edge
+      nodes.
+    </p>
+    <p>
+      The 1-D quadratic mapping stays monotone <b>iff the mid-side node
+      is within the middle half of the edge</b>
+      (<span class="math-inline">|\Delta| &lt; L/4</span> from the chord
+      midpoint). Violate this and the edge folds on itself &mdash; the
+      element's Jacobian goes negative near that edge.
+    </p>
+    <div class="bad">
+      Try the <b>Bad mid-side</b> preset to see the red <span
+      class="math-inline">|J| &lt; 0</span> region appear.
+    </div>
+  </div>
+
+  <div class="step">
+    <h2>6. Q8 vs Q9 &mdash; which to pick?</h2>
+    <p>
+      <b>Q8</b> has 16 DOFs, <b>Q9</b> has 18 DOFs. The extra 2 DOFs buy
+      the full biquadratic polynomial space and, with
+      <span class="math-inline">3&times;3</span> Gauss, exact integration
+      on affine meshes.
+    </p>
+    <ul style="font-size:0.85rem; margin-left: 18px; line-height:1.55">
+      <li><b>Q8</b> &mdash; cheaper, ubiquitous for curved 2-D solid
+          meshes (ABAQUS <code>CPS8</code>, ANSYS <code>PLANE183</code>).
+          Reduced integration
+          (<span class="math-inline">2&times;2</span>) is common to
+          suppress shear locking, but it introduces one hourglass mode.</li>
+      <li><b>Q9</b> &mdash; better conditioned, no spurious zero energy
+          modes with full
+          (<span class="math-inline">3&times;3</span>) Gauss, and is the
+          natural 2-D building block for higher-order
+          <span class="math-inline">p</span>-refinement and spectral
+          elements.</li>
+      <li>Both degrade to the straight-edge Q4 if all mid-side (and
+          centre) nodes sit on their chord midpoints.</li>
+    </ul>
+  </div>
+
+</div><!-- /deriv-grid -->
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+//  node order:  1..4 corners CCW from (-1,-1);
+//               5..8 mid-sides at (0,-1),(1,0),(0,1),(-1,0);
+//               9 centre at (0,0)  (only used for Q9)
+const PRESETS = {
+  rectangle: [
+    [0,0],[4,0],[4,3],[0,3],       // corners 1..4
+    [2,0],[4,1.5],[2,3],[0,1.5],   // mid-sides 5..8
+    [2,1.5]                        // centre 9
+  ],
+  curved_bottom: [
+    [0,0],[4,0],[4,3],[0,3],
+    [2,-1],[4,1.5],[2,3],[0,1.5],  // node 5 pulled down
+    [2,1.5]
+  ],
+  barrel: [
+    [0,0],[4,0],[4,3],[0,3],
+    [2,-0.6],[4.6,1.5],[2,3.6],[-0.6,1.5],  // all mid-sides pushed out
+    [2,1.5]
+  ],
+  trapezoid: [
+    [0,0],[4,0],[3,3],[1,3],
+    [2,0],[3.5,1.5],[2,3],[0.5,1.5],
+    [2,1.5]
+  ],
+  bad_midside: [
+    // node 5 pushed past the 1/4-rule threshold
+    [0,0],[4,0],[4,3],[0,3],
+    [3.7,0],[4,1.5],[2,3],[0,1.5],
+    [2,1.5]
+  ],
+};
+let mode = 8;                          // 8 or 9
+let nodes = PRESETS.rectangle.map(n => [...n]);
+let xiP = 0, etaP = 0;
+let dragging = null;                   // 'probe' or 'node-k'
+let hoverTarget = null;
+
+// Node catalogue for parent drawing and N count
+const N_COUNT = () => (mode === 8 ? 8 : 9);
+const PARENT_NODES = [
+  [-1,-1],[ 1,-1],[ 1, 1],[-1, 1],     // corners
+  [ 0,-1],[ 1, 0],[ 0, 1],[-1, 0],     // mid-sides
+  [ 0, 0]                              // centre
+];
+// Colour by role
+const NODE_COLOR = (i) => {
+  if (i < 4) return '#dc2626';         // corner: red
+  if (i < 8) return '#ea580c';         // mid-side: orange
+  return '#7c3aed';                    // centre: purple
+};
+
+// ============================================================
+//  SHAPE FUNCTIONS (Q8 & Q9)
+// ============================================================
+// Q8 serendipity
+function N_Q8(xi, et) {
+  const n = new Array(8);
+  const xic = [-1, 1, 1,-1], etc = [-1,-1, 1, 1];
+  for (let i=0;i<4;i++) {
+    const u = xic[i]*xi, v = etc[i]*et;
+    n[i] = 0.25*(1+u)*(1+v)*(u+v-1);
+  }
+  n[4] = 0.5*(1-xi*xi)*(1-et);
+  n[5] = 0.5*(1+xi)*(1-et*et);
+  n[6] = 0.5*(1-xi*xi)*(1+et);
+  n[7] = 0.5*(1-xi)*(1-et*et);
+  return n;
+}
+function dN_Q8(xi, et) {
+  const ds = new Array(8), dt = new Array(8);
+  const xic = [-1, 1, 1,-1], etc = [-1,-1, 1, 1];
+  for (let i=0;i<4;i++) {
+    // N = (1/4) (1+xi_i xi)(1+et_i et)(xi_i xi + et_i et - 1)
+    ds[i] = 0.25*xic[i]*(1+etc[i]*et)*(2*xic[i]*xi + etc[i]*et);
+    dt[i] = 0.25*etc[i]*(1+xic[i]*xi)*(xic[i]*xi + 2*etc[i]*et);
+  }
+  ds[4] = -xi*(1-et);         dt[4] = -0.5*(1-xi*xi);
+  ds[5] =  0.5*(1-et*et);     dt[5] = -et*(1+xi);
+  ds[6] = -xi*(1+et);         dt[6] =  0.5*(1-xi*xi);
+  ds[7] = -0.5*(1-et*et);     dt[7] = -et*(1-xi);
+  return { ds, dt };
+}
+// Q9 Lagrangian
+function L_(t)   { return 0.5*t*(t-1); }
+function L0(t)   { return (1-t*t);     }
+function Lp(t)   { return 0.5*t*(t+1); }
+function dL_(t)  { return t - 0.5; }
+function dL0(t)  { return -2*t;    }
+function dLp(t)  { return t + 0.5; }
+// indexing: 1..4 corners, 5..8 mid-sides, 9 centre
+//   node  (a,b) in (xi,eta)
+//   1: (L_, L_)  2: (Lp, L_)  3: (Lp, Lp)  4: (L_, Lp)
+//   5: (L0, L_)  6: (Lp, L0)  7: (L0, Lp)  8: (L_, L0)
+//   9: (L0, L0)
+const Q9_ab = [
+  ['_','_'], ['p','_'], ['p','p'], ['_','p'],
+  ['0','_'], ['p','0'], ['0','p'], ['_','0'],
+  ['0','0']
+];
+const Lmap  = { '_': L_,  '0': L0,  'p': Lp  };
+const dLmap = { '_': dL_, '0': dL0, 'p': dLp };
+function N_Q9(xi, et) {
+  const n = new Array(9);
+  for (let i=0;i<9;i++) {
+    const [a,b] = Q9_ab[i];
+    n[i] = Lmap[a](xi) * Lmap[b](et);
+  }
+  return n;
+}
+function dN_Q9(xi, et) {
+  const ds = new Array(9), dt = new Array(9);
+  for (let i=0;i<9;i++) {
+    const [a,b] = Q9_ab[i];
+    ds[i] = dLmap[a](xi) * Lmap[b](et);
+    dt[i] = Lmap[a](xi)  * dLmap[b](et);
+  }
+  return { ds, dt };
+}
+// dispatch
+function N(xi, et)     { return mode===8 ? N_Q8(xi,et) : N_Q9(xi,et); }
+function dN(xi, et)    { return mode===8 ? dN_Q8(xi,et) : dN_Q9(xi,et); }
+
+// ============================================================
+//  MAP & JACOBIAN
+// ============================================================
+function mapPt(xi, et) {
+  const n = N(xi, et);
+  const K = N_COUNT();
+  let x=0, y=0;
+  for (let i=0;i<K;i++) { x += n[i]*nodes[i][0]; y += n[i]*nodes[i][1]; }
+  return [x, y];
+}
+function jacobian(xi, et) {
+  const { ds, dt } = dN(xi, et);
+  const K = N_COUNT();
+  let J00=0, J01=0, J10=0, J11=0;
+  for (let i=0;i<K;i++) {
+    J00 += ds[i]*nodes[i][0];
+    J01 += ds[i]*nodes[i][1];
+    J10 += dt[i]*nodes[i][0];
+    J11 += dt[i]*nodes[i][1];
+  }
+  return {
+    J: [[J00,J01],[J10,J11]],
+    det: J00*J11 - J01*J10
+  };
+}
+
+// ============================================================
+//  CANVAS TRANSFORMS
+// ============================================================
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cv.getBoundingClientRect();
+  cv.width  = rect.width  * dpr;
+  cv.height = rect.height * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { ctx, W: rect.width, H: rect.height };
+}
+function parentTransform(W, H) {
+  const pad = 30;
+  const sc = Math.min((W-2*pad)/2.8, (H-2*pad)/2.8);
+  const ox = W/2, oy = H/2;
+  return {
+    to: (xi, et) => [ox + xi*sc, oy - et*sc],
+    from: (px, py) => [(px-ox)/sc, -(py-oy)/sc],
+    sc,
+  };
+}
+let actualTF = null;
+function actualTransform(W, H) {
+  // include all nodes AND the sampled boundary so curved edges fit
+  const K = N_COUNT();
+  const pts = [];
+  for (let i=0;i<K;i++) pts.push(nodes[i]);
+  // sample edges
+  const S = 20;
+  for (let i=0;i<=S;i++) {
+    const t = -1 + 2*i/S;
+    pts.push(mapPt(t,-1));
+    pts.push(mapPt(t, 1));
+    pts.push(mapPt(-1, t));
+    pts.push(mapPt( 1, t));
+  }
+  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const cx=(xmin+xmax)/2, cy=(ymin+ymax)/2;
+  const spanX = Math.max(xmax-xmin, 1), spanY = Math.max(ymax-ymin, 1);
+  const pad = 40;
+  const sc = Math.min((W-2*pad)/(spanX*1.25), (H-2*pad)/(spanY*1.25));
+  const ox = W/2 - cx*sc, oy = H/2 + cy*sc;
+  return {
+    to: (x, y) => [ox + x*sc, oy - y*sc],
+    from: (px, py) => [(px-ox)/sc, -(py-oy)/sc],
+    sc,
+  };
+}
+
+// ============================================================
+//  DRAWING
+// ============================================================
+function drawArrowHead(ctx, x, y, ang, color) {
+  const s = 6;
+  ctx.save();
+  ctx.translate(x,y); ctx.rotate(ang);
+  ctx.beginPath();
+  ctx.moveTo(0,0); ctx.lineTo(-s, -s*0.5); ctx.lineTo(-s,  s*0.5);
+  ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+  ctx.restore();
+}
+
+function drawParent() {
+  const cv = document.getElementById('cv-parent');
+  const { ctx, W, H } = setupCanvas(cv);
+  const T = parentTransform(W, H);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#fdfefe'; ctx.fillRect(0,0,W,H);
+
+  // shade |J| < 0 region
+  const M = 50;
+  ctx.fillStyle = 'rgba(220,38,38,0.22)';
+  for (let i=0;i<M;i++) {
+    for (let j=0;j<M;j++) {
+      const xi0 = -1 + 2*i/M,     et0 = -1 + 2*j/M;
+      const xi1 = -1 + 2*(i+1)/M, et1 = -1 + 2*(j+1)/M;
+      const { det } = jacobian((xi0+xi1)/2, (et0+et1)/2);
+      if (det < 0) {
+        const p00 = T.to(xi0, et0), p10 = T.to(xi1, et0);
+        const p11 = T.to(xi1, et1), p01 = T.to(xi0, et1);
+        ctx.beginPath();
+        ctx.moveTo(p00[0],p00[1]); ctx.lineTo(p10[0],p10[1]);
+        ctx.lineTo(p11[0],p11[1]); ctx.lineTo(p01[0],p01[1]);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  // grid
+  const showGrid = document.getElementById('chk-grid').checked;
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(59,130,246,0.25)';
+    ctx.lineWidth = 1;
+    const K = 8;
+    for (let i=0;i<=K;i++) {
+      const t = -1 + 2*i/K;
+      ctx.beginPath();
+      const p1 = T.to(t,-1), p2 = T.to(t, 1);
+      ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]); ctx.stroke();
+      ctx.beginPath();
+      const q1 = T.to(-1, t), q2 = T.to( 1, t);
+      ctx.moveTo(q1[0],q1[1]); ctx.lineTo(q2[0],q2[1]); ctx.stroke();
+    }
+  }
+
+  // axes
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  const xA1 = T.to(-1.3, 0), xA2 = T.to(1.3, 0);
+  ctx.moveTo(xA1[0],xA1[1]); ctx.lineTo(xA2[0],xA2[1]);
+  const yA1 = T.to(0, -1.3), yA2 = T.to(0, 1.3);
+  ctx.moveTo(yA1[0],yA1[1]); ctx.lineTo(yA2[0],yA2[1]);
+  ctx.stroke();
+  drawArrowHead(ctx, xA2[0], xA2[1], 0, '#555');
+  drawArrowHead(ctx, yA2[0], yA2[1], -Math.PI/2, '#555');
+  ctx.fillStyle='#555'; ctx.font='italic 13px serif';
+  ctx.fillText('ξ', xA2[0]+4, xA2[1]+4);
+  ctx.fillText('η', yA2[0]+6, yA2[1]+4);
+
+  // parent square outline
+  const c1=T.to(-1,-1), c2=T.to(1,-1), c3=T.to(1,1), c4=T.to(-1,1);
+  ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=2.5;
+  ctx.beginPath();
+  ctx.moveTo(c1[0],c1[1]);
+  ctx.lineTo(c2[0],c2[1]);
+  ctx.lineTo(c3[0],c3[1]);
+  ctx.lineTo(c4[0],c4[1]); ctx.closePath(); ctx.stroke();
+  ctx.fillStyle='rgba(30,58,95,0.05)'; ctx.fill();
+
+  // parent nodes
+  const K = N_COUNT();
+  for (let i=0;i<K;i++) {
+    const [xi, et] = PARENT_NODES[i];
+    const [sx, sy] = T.to(xi, et);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 7, 0, 2*Math.PI);
+    ctx.fillStyle = NODE_COLOR(i); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i+1, sx, sy);
+  }
+
+  // probe cross-hair
+  const [psx, psy] = T.to(xiP, etaP);
+  ctx.strokeStyle = 'rgba(22,163,74,0.35)';
+  ctx.setLineDash([4,3]); ctx.lineWidth=1;
+  ctx.beginPath();
+  const hx1 = T.to(-1, etaP), hx2 = T.to(1, etaP);
+  ctx.moveTo(hx1[0],hx1[1]); ctx.lineTo(hx2[0],hx2[1]);
+  const vy1 = T.to(xiP, -1), vy2 = T.to(xiP, 1);
+  ctx.moveTo(vy1[0],vy1[1]); ctx.lineTo(vy2[0],vy2[1]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath(); ctx.arc(psx, psy, 9, 0, 2*Math.PI);
+  ctx.fillStyle = dragging==='probe' ? '#0f6b2d' : '#16a34a';
+  ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+
+  ctx.fillStyle='#166534'; ctx.font='bold 11px monospace';
+  ctx.textAlign='left';
+  ctx.fillText(`(ξ,η) = (${xiP.toFixed(2)}, ${etaP.toFixed(2)})`,
+               psx+12, psy-10);
+}
+
+function drawActual() {
+  const cv = document.getElementById('cv-actual');
+  const { ctx, W, H } = setupCanvas(cv);
+  const T = actualTransform(W, H);
+  actualTF = T;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fdfefe'; ctx.fillRect(0,0,W,H);
+
+  // shade image of |J| < 0 region (sample cells)
+  const M = 40;
+  ctx.fillStyle = 'rgba(220,38,38,0.22)';
+  for (let i=0;i<M;i++) {
+    for (let j=0;j<M;j++) {
+      const xi0 = -1 + 2*i/M,     et0 = -1 + 2*j/M;
+      const xi1 = -1 + 2*(i+1)/M, et1 = -1 + 2*(j+1)/M;
+      const { det } = jacobian((xi0+xi1)/2, (et0+et1)/2);
+      if (det < 0) {
+        const p00 = T.to(...mapPt(xi0, et0));
+        const p10 = T.to(...mapPt(xi1, et0));
+        const p11 = T.to(...mapPt(xi1, et1));
+        const p01 = T.to(...mapPt(xi0, et1));
+        ctx.beginPath();
+        ctx.moveTo(p00[0],p00[1]); ctx.lineTo(p10[0],p10[1]);
+        ctx.lineTo(p11[0],p11[1]); ctx.lineTo(p01[0],p01[1]);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  const showGrid = document.getElementById('chk-grid').checked;
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(59,130,246,0.45)';
+    ctx.lineWidth = 1;
+    const KG = 8, SM = 40;
+    // eta = const lines
+    for (let i=0;i<=KG;i++) {
+      const et = -1 + 2*i/KG;
+      ctx.beginPath();
+      for (let j=0;j<=SM;j++) {
+        const xi = -1 + 2*j/SM;
+        const [px, py] = T.to(...mapPt(xi, et));
+        if (j===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+    // xi = const lines
+    for (let i=0;i<=KG;i++) {
+      const xi = -1 + 2*i/KG;
+      ctx.beginPath();
+      for (let j=0;j<=SM;j++) {
+        const et = -1 + 2*j/SM;
+        const [px, py] = T.to(...mapPt(xi, et));
+        if (j===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // element boundary (4 curved edges, sampled)
+  ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  const SB = 60;
+  // bottom eta=-1, xi -1->1
+  for (let j=0;j<=SB;j++) {
+    const xi = -1 + 2*j/SB;
+    const [px,py] = T.to(...mapPt(xi,-1));
+    if (j===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  // right xi=1, eta -1->1
+  for (let j=1;j<=SB;j++) {
+    const et = -1 + 2*j/SB;
+    const [px,py] = T.to(...mapPt(1,et));
+    ctx.lineTo(px,py);
+  }
+  // top eta=1, xi 1->-1
+  for (let j=1;j<=SB;j++) {
+    const xi = 1 - 2*j/SB;
+    const [px,py] = T.to(...mapPt(xi,1));
+    ctx.lineTo(px,py);
+  }
+  // left xi=-1, eta 1->-1
+  for (let j=1;j<=SB;j++) {
+    const et = 1 - 2*j/SB;
+    const [px,py] = T.to(...mapPt(-1,et));
+    ctx.lineTo(px,py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(30,58,95,0.05)'; ctx.fill();
+  ctx.stroke();
+
+  // nodes
+  const K = N_COUNT();
+  for (let i=0;i<K;i++) {
+    const [sx, sy] = T.to(nodes[i][0], nodes[i][1]);
+    ctx.beginPath();
+    const r = (i<4) ? 8 : (i<8 ? 7 : 6);
+    ctx.arc(sx, sy, r, 0, 2*Math.PI);
+    ctx.fillStyle = NODE_COLOR(i); ctx.fill();
+    ctx.strokeStyle = dragging===`node-${i}` ? '#0b1b3b' : '#fff';
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 10px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i+1, sx, sy);
+  }
+
+  // probe image
+  const [xP, yP] = mapPt(xiP, etaP);
+  const [psx, psy] = T.to(xP, yP);
+  ctx.beginPath(); ctx.arc(psx, psy, 9, 0, 2*Math.PI);
+  ctx.fillStyle = '#16a34a'; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.fillStyle='#166534'; ctx.font='bold 11px monospace';
+  ctx.textAlign='left';
+  ctx.fillText(`(x,y) = (${xP.toFixed(2)}, ${yP.toFixed(2)})`,
+               psx+12, psy-10);
+}
+
+// ============================================================
+//  DERIVATION PANEL UPDATES
+// ============================================================
+function fmtMat(M, d=3) {
+  let s = '<table>';
+  for (let r=0; r<M.length; r++) {
+    s += '<tr>';
+    for (let c=0; c<M[r].length; c++) s += `<td>${M[r][c].toFixed(d)}</td>`;
+    s += '</tr>';
+  }
+  return s + '</table>';
+}
+
+function updateDeriv() {
+  const xi = xiP, et = etaP;
+  const n = N(xi, et);
+  const [x, y] = mapPt(xi, et);
+  const { J, det } = jacobian(xi, et);
+
+  // readouts
+  const rdXi = document.getElementById('rd-xi');
+  const rdEta = document.getElementById('rd-eta');
+  if (document.activeElement !== rdXi) rdXi.value = xi.toFixed(3);
+  if (document.activeElement !== rdEta) rdEta.value = et.toFixed(3);
+  document.getElementById('rd-x').textContent = x.toFixed(3);
+  document.getElementById('rd-y').textContent = y.toFixed(3);
+  const rdDet = document.getElementById('rd-detJ');
+  rdDet.textContent = det.toFixed(4);
+  rdDet.style.color = det > 0 ? '#15803d' : det < 0 ? '#dc2626' : '#888';
+  rdDet.style.fontWeight = '700';
+  const sumN = n.reduce((a,b)=>a+b, 0);
+  document.getElementById('rd-sumN').textContent = sumN.toFixed(3);
+  document.getElementById('pou-val').textContent = sumN.toFixed(4);
+
+  // shape table
+  const tbl = document.getElementById('tbl-N');
+  const K = N_COUNT();
+  let html = '<thead><tr>' +
+             '<th>i</th><th>node role</th>' +
+             '<th>N<sub>i</sub></th>' +
+             '<th>x<sub>i</sub></th><th>y<sub>i</sub></th>' +
+             '</tr></thead><tbody>';
+  for (let i=0;i<K;i++) {
+    const role = i<4 ? 'corner' : i<8 ? 'mid-side' : 'centre';
+    const cls  = (i===8) ? 'row-center' : '';
+    html += `<tr class="${cls}"><td>${i+1}</td><td>${role}</td>` +
+            `<td>${n[i].toFixed(4)}</td>` +
+            `<td>${nodes[i][0].toFixed(2)}</td>` +
+            `<td>${nodes[i][1].toFixed(2)}</td></tr>`;
+  }
+  html += '</tbody>';
+  tbl.innerHTML = html;
+
+  // map numeric result
+  document.getElementById('nbox-map').innerHTML =
+    `<div>x(ξ,η) = <span class="hi">${x.toFixed(4)}</span>` +
+    `&nbsp;&nbsp;y(ξ,η) = <span class="hi">${y.toFixed(4)}</span></div>` +
+    `<div style="color:#64748b; margin-top:2px;">` +
+    `(sum of ${K} terms N<sub>i</sub>·(x<sub>i</sub>,y<sub>i</sub>))</div>`;
+
+  // Jacobian
+  document.getElementById('mat-J').innerHTML = fmtMat(J, 3);
+  const detEl = document.getElementById('val-detJ');
+  detEl.textContent = det.toFixed(4);
+  detEl.style.color = det > 0 ? '#15803d' : det < 0 ? '#dc2626' : '#888';
+
+  // warning
+  const w = document.getElementById('jac-warn');
+  if (det <= 0) {
+    w.innerHTML =
+      `<div class="bad"><b>|J| = ${det.toFixed(4)} ≤ 0 at the probe.</b>` +
+      ` The mapping is folded/singular here. Move a mid-side node back ` +
+      ` toward its chord midpoint, or switch to the Rectangle preset.</div>`;
+  } else if (det < 0.05) {
+    w.innerHTML =
+      `<div class="note"><b>|J| is small (${det.toFixed(4)}).</b>` +
+      ` The inverse Jacobian is nearly singular — stiffness integrand` +
+      ` becomes badly conditioned.</div>`;
+  } else {
+    w.innerHTML = '';
+  }
+}
+
+// ============================================================
+//  INTERACTION
+// ============================================================
+const cvP = document.getElementById('cv-parent');
+const cvA = document.getElementById('cv-actual');
+function evToCanvas(ev, cv) {
+  const r = cv.getBoundingClientRect();
+  return [ev.clientX - r.left, ev.clientY - r.top];
+}
+function dist(a,b) { return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+
+// --- parent canvas: only the green probe is draggable
+cvP.addEventListener('pointerdown', (ev) => {
+  const [px, py] = evToCanvas(ev, cvP);
+  const { W, H } = { W: cvP.getBoundingClientRect().width,
+                     H: cvP.getBoundingClientRect().height };
+  const T = parentTransform(W, H);
+  const [sx, sy] = T.to(xiP, etaP);
+  if (dist([px,py],[sx,sy]) < 14) {
+    dragging = 'probe';
+    cvP.setPointerCapture(ev.pointerId);
+    redrawAll();
+  }
+});
+cvP.addEventListener('pointermove', (ev) => {
+  const [px, py] = evToCanvas(ev, cvP);
+  const { W, H } = { W: cvP.getBoundingClientRect().width,
+                     H: cvP.getBoundingClientRect().height };
+  const T = parentTransform(W, H);
+  if (dragging === 'probe') {
+    const [xi, et] = T.from(px, py);
+    xiP = Math.max(-1, Math.min(1, xi));
+    etaP = Math.max(-1, Math.min(1, et));
+    redrawAll();
+  } else {
+    const [sx, sy] = T.to(xiP, etaP);
+    cvP.style.cursor = dist([px,py],[sx,sy]) < 14 ? 'grab' : 'crosshair';
+  }
+});
+cvP.addEventListener('pointerup', () => { dragging = null; redrawAll(); });
+cvP.addEventListener('pointerleave', () => {
+  if (dragging==='probe') dragging = null;
+});
+
+// --- actual canvas: drag nodes 1..K
+cvA.addEventListener('pointerdown', (ev) => {
+  const [px, py] = evToCanvas(ev, cvA);
+  if (!actualTF) return;
+  const K = N_COUNT();
+  for (let i=0;i<K;i++) {
+    const [sx, sy] = actualTF.to(nodes[i][0], nodes[i][1]);
+    if (dist([px,py],[sx,sy]) < 14) {
+      dragging = `node-${i}`;
+      cvA.setPointerCapture(ev.pointerId);
+      redrawAll();
+      return;
+    }
+  }
+});
+cvA.addEventListener('pointermove', (ev) => {
+  const [px, py] = evToCanvas(ev, cvA);
+  if (!actualTF) return;
+  if (dragging && dragging.startsWith('node-')) {
+    const i = +dragging.slice(5);
+    const [x, y] = actualTF.from(px, py);
+    nodes[i] = [x, y];
+    redrawAll();
+  } else {
+    const K = N_COUNT();
+    let hit = false;
+    for (let i=0;i<K;i++) {
+      const [sx, sy] = actualTF.to(nodes[i][0], nodes[i][1]);
+      if (dist([px,py],[sx,sy]) < 14) { hit = true; break; }
+    }
+    cvA.style.cursor = hit ? 'grab' : 'default';
+  }
+});
+cvA.addEventListener('pointerup', () => { dragging = null; redrawAll(); });
+cvA.addEventListener('pointerleave', () => {
+  if (dragging && dragging.startsWith('node-')) dragging = null;
+});
+
+// ============================================================
+//  ACTIONS
+// ============================================================
+function setElement(k) {
+  mode = k;
+  document.getElementById('btn-q8').classList.toggle('active', k===8);
+  document.getElementById('btn-q9').classList.toggle('active', k===9);
+  redrawAll();
+}
+function loadPreset(name) {
+  if (!PRESETS[name]) return;
+  nodes = PRESETS[name].map(n => [...n]);
+  xiP = 0; etaP = 0;
+  redrawAll();
+}
+function onProbeInput() {
+  const xiVal = parseFloat(document.getElementById('rd-xi').value);
+  const etVal = parseFloat(document.getElementById('rd-eta').value);
+  if (!isNaN(xiVal)) xiP = Math.max(-1, Math.min(1, xiVal));
+  if (!isNaN(etVal)) etaP = Math.max(-1, Math.min(1, etVal));
+  redrawAll();
+}
+function redrawAll() {
+  drawParent();
+  drawActual();
+  updateDeriv();
+}
+
+window.addEventListener('resize', redrawAll);
+cvP.style.cursor = 'crosshair';
+redrawAll();
+</script>
+
+</body>
+</html>

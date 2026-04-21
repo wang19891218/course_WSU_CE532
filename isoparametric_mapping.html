@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4-Node Isoparametric Mapping &mdash; CE/ME 532</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f5f7fa; color: #333;
+  padding: 20px; max-width: 1500px; margin: 0 auto;
+}
+h1 { text-align: center; font-size: 1.45rem; margin-bottom: 4px; }
+.subtitle {
+  text-align: center; color: #666;
+  margin-bottom: 14px; font-size: 0.92rem;
+}
+.back-link {
+  display: inline-block; font-size: 0.82rem; color: #2563eb;
+  text-decoration: none; margin-bottom: 8px;
+}
+.back-link:hover { text-decoration: underline; }
+
+/* ============================================================ */
+/*  LAYOUT                                                      */
+/* ============================================================ */
+.top-panel {
+  background: #fff; border-radius: 8px; padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  margin-bottom: 16px;
+}
+.viz-row {
+  display: flex; gap: 12px;
+  align-items: center; justify-content: center; flex-wrap: wrap;
+}
+.viz-block { flex: 1 1 380px; max-width: 560px; display: flex;
+             flex-direction: column; align-items: center; }
+.viz-block h3 {
+  font-size: 0.9rem; color: #1f3b7a; margin-bottom: 6px;
+  font-weight: 700;
+}
+canvas.viz {
+  width: 100%; max-width: 500px; height: 380px;
+  border: 1px solid #ddd; border-radius: 6px; background: #fafbfc;
+  display: block;
+}
+.arrow-col { flex: 0 0 60px; text-align: center;
+             color: #666; font-size: 1.8rem; user-select: none; }
+
+.controls {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; margin-top: 10px;
+}
+.controls button {
+  padding: 6px 12px; border: none; border-radius: 5px;
+  cursor: pointer; font-size: 0.78rem; font-weight: 600;
+  background: #e5e7eb; color: #333;
+}
+.controls button:hover { background: #d1d5db; }
+.controls button.primary { background: #3b82f6; color: #fff; }
+.controls button.primary:hover { background: #2563eb; }
+.controls label {
+  font-size: 0.78rem; color: #555; display: flex;
+  align-items: center; gap: 4px;
+}
+.instructions {
+  font-size: 0.78rem; color: #888; font-style: italic;
+  text-align: center; margin-top: 8px;
+}
+
+/* ============================================================ */
+/*  DERIVATION                                                  */
+/* ============================================================ */
+.deriv-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 1100px) {
+  .deriv-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.step {
+  background: #fff; border-radius: 8px; padding: 14px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.step h2 {
+  font-size: 0.98rem; color: #1f3b7a;
+  border-bottom: 2px solid #dde2ee; padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+.step p {
+  font-size: 0.85rem; line-height: 1.55; margin-bottom: 7px;
+}
+
+.math-block {
+  font-family: 'Cambria Math', Georgia, serif;
+  font-size: 0.95rem;
+  margin: 6px 0 8px 14px;
+  line-height: 1.6;
+}
+.math-inline { font-family: 'Cambria Math', Georgia, serif; }
+.num {
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem; color: #1a365d;
+}
+.num-box {
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 4px; padding: 6px 10px;
+  margin: 4px 0 8px 14px; font-family: 'Courier New', monospace;
+  font-size: 0.80rem; color: #1a365d; overflow-x: auto;
+}
+.num-box .hi { color: #c04c2f; font-weight: 700; }
+
+/* Matrix rendering */
+.mat {
+  display: inline-block; position: relative;
+  padding: 2px 10px; vertical-align: middle;
+}
+.mat::before, .mat::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 6px;
+  border: solid 1.5px #222;
+}
+.mat::before { left: 0; border-right: none; }
+.mat::after  { right: 0; border-left: none; }
+.mat table { border-collapse: collapse; }
+.mat td {
+  padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;
+  font-family: 'Courier New', monospace; font-size: 0.80rem;
+  min-width: 50px; color: #1a365d;
+}
+.mat.sym td { font-family: 'Cambria Math', Georgia, serif;
+              font-style: italic; font-size: 0.92rem; color: #222; }
+.eq { margin: 0 8px; }
+.lbl { font-family: 'Cambria Math', Georgia, serif;
+       font-style: italic; font-size: 1rem; }
+
+.note {
+  background: #fff8e1; border-left: 3px solid #f4b400;
+  padding: 8px 12px; font-size: 0.82rem; margin: 8px 0;
+  border-radius: 4px; line-height: 1.45;
+}
+.key {
+  background: #e0f2fe; border-left: 3px solid #0284c7;
+  padding: 8px 12px; font-size: 0.82rem; margin: 8px 0;
+  border-radius: 4px; line-height: 1.45;
+}
+.bad {
+  background: #fee2e2; border-left: 3px solid #dc2626;
+  padding: 8px 12px; font-size: 0.82rem; margin: 8px 0;
+  border-radius: 4px; line-height: 1.45;
+}
+
+.probe-readout {
+  display: inline-flex; gap: 14px; flex-wrap: wrap;
+  background: #f1f5f9; border-radius: 5px; padding: 6px 12px;
+  font-family: 'Courier New', monospace; font-size: 0.82rem;
+  color: #1a365d; margin-top: 6px;
+}
+.probe-readout span { white-space: nowrap; }
+.probe-readout .k { color: #64748b; }
+.probe-readout input.probe-input {
+  font-family: 'Courier New', monospace; font-size: 0.82rem;
+  color: #1a365d; width: 72px; padding: 2px 4px;
+  border: 1px solid #94a3b8; border-radius: 3px; background: #fff;
+  text-align: right;
+}
+.probe-readout input.probe-input:focus {
+  outline: none; border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.25);
+}
+
+.preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+.subsub {
+  font-weight: 600; color: #334155;
+  font-size: 0.85rem; margin: 10px 0 4px 0;
+}
+</style>
+</head>
+<body>
+
+<a class="back-link" href="index.html">&larr; Back to Interactive Tools</a>
+
+<h1>4-Node Planar Isoparametric Element &mdash; Mapping Visualization</h1>
+<p class="subtitle">
+  CE/ME&nbsp;532 &middot; Section&nbsp;3.5 &middot;
+  Drag the <b style="color:#16a34a">green probe</b>
+  or the <b style="color:#dc2626">red corner nodes</b>
+  to watch the isoparametric mapping
+  <span class="math-inline">(&xi;,&eta;) &rarr; (x,y)</span>
+  and every matrix in the derivation update live.
+</p>
+
+<!-- ========== TOP: INTERACTIVE VISUALIZATION ========== -->
+<div class="top-panel">
+  <div class="viz-row">
+    <div class="viz-block">
+      <h3>Parent element &nbsp;
+        (<span class="math-inline">&xi;,&eta;</span>)&nbsp; space</h3>
+      <canvas id="cv-parent" class="viz"></canvas>
+    </div>
+    <div class="arrow-col">&rarr;</div>
+    <div class="viz-block">
+      <h3>Actual element &nbsp;
+        (<span class="math-inline">x,y</span>)&nbsp; space</h3>
+      <canvas id="cv-actual" class="viz"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="loadPreset('undistorted')">Undistorted square</button>
+    <button onclick="loadPreset('parallelogram')">Parallelogram</button>
+    <button onclick="loadPreset('trapezoid')">Trapezoid</button>
+    <button onclick="loadPreset('distorted')" class="primary">Distorted quad</button>
+    <button onclick="loadPreset('near_bad')">Near-degenerate</button>
+    <label>
+      <input type="checkbox" id="chk-grid" checked onchange="redrawAll()">
+      Show &xi;/&eta; grid
+    </label>
+    <label>
+      <input type="checkbox" id="chk-jacarrow" checked onchange="redrawAll()">
+      Show Jacobian columns
+    </label>
+  </div>
+
+  <div style="text-align:center; margin-top:10px;">
+    <div class="probe-readout">
+      <span><span class="k">&xi; =</span>
+        <input type="number" class="probe-input" id="rd-xi"
+               step="0.05" min="-1" max="1" value="0.000"
+               oninput="onProbeInput()"></span>
+      <span><span class="k">&eta; =</span>
+        <input type="number" class="probe-input" id="rd-eta"
+               step="0.05" min="-1" max="1" value="0.000"
+               oninput="onProbeInput()"></span>
+      <span><span class="k">x =</span> <span id="rd-x">0.000</span></span>
+      <span><span class="k">y =</span> <span id="rd-y">0.000</span></span>
+      <span><span class="k">|J| =</span> <span id="rd-detJ">0.000</span></span>
+    </div>
+  </div>
+  <p class="instructions">
+    The blue mesh on the right is the image of the
+    <span class="math-inline">&xi;</span>=const and
+    <span class="math-inline">&eta;</span>=const grid lines from the parent
+    square. The two magenta arrows at the probe are the Jacobian columns
+    <span class="math-inline">&part;r/&part;&xi;</span> and
+    <span class="math-inline">&part;r/&part;&eta;</span> &mdash; the signed
+    area of the parallelogram they span is
+    <span class="math-inline">|J|</span>.
+    <br>
+    <b style="color:#b91c1c">Red shading</b> marks the region of the parent
+    square where <span class="math-inline">|J| &lt; 0</span> (and its image
+    on the actual element). Load the
+    <b>Near-degenerate</b> preset and drag the green probe into the red
+    zone &mdash; the matrix <span class="math-inline">J</span>
+    determinant flips sign and the step-4 warning turns red.
+  </p>
+</div>
+
+<!-- ========== DERIVATION GRID ========== -->
+<div class="deriv-grid">
+
+  <!-- ==================== STEP 1 ==================== -->
+  <div class="step">
+    <h2>1. Bilinear Lagrange shape functions</h2>
+    <p>
+      Four corner nodes &rArr; four shape functions, one per node.
+      Each <span class="math-inline">N<sub>i</sub>(&xi;,&eta;)</span>
+      equals 1 at its own node and 0 at all three others, and together
+      the set is bilinear (complete up to the <span class="math-inline">&xi;&eta;</span>
+      term):
+    </p>
+
+    <div class="math-block">
+      <span class="math-inline">N<sub>1</sub> = &frac14;(1&minus;&xi;)(1&minus;&eta;)</span>,
+      &nbsp;
+      <span class="math-inline">N<sub>2</sub> = &frac14;(1+&xi;)(1&minus;&eta;)</span>,<br>
+      <span class="math-inline">N<sub>3</sub> = &frac14;(1+&xi;)(1+&eta;)</span>,
+      &nbsp;
+      <span class="math-inline">N<sub>4</sub> = &frac14;(1&minus;&xi;)(1+&eta;)</span>.
+    </div>
+
+    <p><b>At the current probe point:</b></p>
+    <div class="num-box" id="nbox-N"></div>
+    <p style="font-size:0.8rem; color:#666; margin-top:4px">
+      <span class="math-inline">&sum;N<sub>i</sub> = <span id="rd-sumN">1.000</span></span>
+      &nbsp;(partition-of-unity check).
+    </p>
+  </div>
+
+  <!-- ==================== STEP 2 ==================== -->
+  <div class="step">
+    <h2>2. Geometry mapping (&ldquo;isoparametric&rdquo;)</h2>
+    <p>
+      The <em>same</em> shape functions interpolate both geometry and
+      displacement. The geometry map is
+    </p>
+    <div class="math-block">
+      <span class="lbl">x</span>(&xi;,&eta;) = &sum;<sub>i=1</sub><sup>4</sup>
+        N<sub>i</sub>(&xi;,&eta;)&thinsp;<span class="lbl">x</span><sub>i</sub>,
+      &nbsp;&nbsp;
+      <span class="lbl">y</span>(&xi;,&eta;) = &sum;<sub>i=1</sub><sup>4</sup>
+        N<sub>i</sub>(&xi;,&eta;)&thinsp;<span class="lbl">y</span><sub>i</sub>.
+    </div>
+
+    <p><b>Matrix form:</b></p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="mat sym">
+        <table><tr><td>x</td></tr><tr><td>y</td></tr></table>
+      </span>
+      <span class="eq">=</span>
+      <span class="mat sym" id="mat-Nrow">
+        <!-- filled by JS with N1..N4 numeric values -->
+      </span>
+      <span class="eq">&times;</span>
+      <span class="mat sym" id="mat-XY">
+        <!-- filled by JS with nodal (x,y) -->
+      </span>
+    </div>
+
+    <p><b>Numerical result at current probe:</b></p>
+    <div class="num-box" id="nbox-map"></div>
+  </div>
+
+  <!-- ==================== STEP 3 ==================== -->
+  <div class="step">
+    <h2>3. Shape-function derivatives in (&xi;,&eta;)</h2>
+    <p>
+      To build strains we need derivatives of
+      <span class="math-inline">N<sub>i</sub></span> with respect to the
+      physical coords <span class="math-inline">(x,y)</span>,
+      but the <span class="math-inline">N<sub>i</sub></span> are written
+      in <span class="math-inline">(&xi;,&eta;)</span>.
+      Start by differentiating in the parent space:
+    </p>
+    <div class="math-block">
+      N<sub>i,&xi;</sub>,&nbsp; N<sub>i,&eta;</sub>&nbsp;
+      are easy to compute from the bilinear forms.
+    </div>
+
+    <p><b>Evaluated at the current probe:</b></p>
+    <div style="overflow-x:auto">
+      <table style="margin:4px auto 8px auto; font-size:0.82rem;
+                    border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f1f5f9; color:#334155;">
+            <th style="padding:4px 10px; border-bottom:1px solid #cbd5e1;">i</th>
+            <th style="padding:4px 10px; border-bottom:1px solid #cbd5e1;">
+              N<sub>i,&xi;</sub></th>
+            <th style="padding:4px 10px; border-bottom:1px solid #cbd5e1;">
+              N<sub>i,&eta;</sub></th>
+          </tr>
+        </thead>
+        <tbody id="tbl-dN"></tbody>
+      </table>
+    </div>
+
+    <p><b>Collected into the 2&times;4 matrix</b>
+       <span class="math-inline">D</span>:</p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="mat sym">
+        <table>
+          <tr><td>N<sub>1,&xi;</sub></td><td>N<sub>2,&xi;</sub></td>
+              <td>N<sub>3,&xi;</sub></td><td>N<sub>4,&xi;</sub></td></tr>
+          <tr><td>N<sub>1,&eta;</sub></td><td>N<sub>2,&eta;</sub></td>
+              <td>N<sub>3,&eta;</sub></td><td>N<sub>4,&eta;</sub></td></tr>
+        </table>
+      </span>
+      <span class="eq">=</span>
+      <span class="mat" id="mat-D"></span>
+    </div>
+  </div>
+
+  <!-- ==================== STEP 4 ==================== -->
+  <div class="step">
+    <h2>4. Jacobian matrix &nbsp;
+      <span class="math-inline">J</span> = <span class="math-inline">D</span> &middot;
+      <span class="math-inline">X</span></h2>
+    <p>
+      The Jacobian of the map
+      <span class="math-inline">(&xi;,&eta;) &rarr; (x,y)</span> is
+    </p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="mat sym">
+        <table>
+          <tr><td>x<sub>,&xi;</sub></td><td>y<sub>,&xi;</sub></td></tr>
+          <tr><td>x<sub>,&eta;</sub></td><td>y<sub>,&eta;</sub></td></tr>
+        </table>
+      </span>
+      <span class="eq">=</span>
+      <span class="mat sym">
+        <table>
+          <tr><td>N<sub>1,&xi;</sub></td><td>N<sub>2,&xi;</sub></td>
+              <td>N<sub>3,&xi;</sub></td><td>N<sub>4,&xi;</sub></td></tr>
+          <tr><td>N<sub>1,&eta;</sub></td><td>N<sub>2,&eta;</sub></td>
+              <td>N<sub>3,&eta;</sub></td><td>N<sub>4,&eta;</sub></td></tr>
+        </table>
+      </span>
+      <span class="eq">&middot;</span>
+      <span class="mat sym">
+        <table>
+          <tr><td>x<sub>1</sub></td><td>y<sub>1</sub></td></tr>
+          <tr><td>x<sub>2</sub></td><td>y<sub>2</sub></td></tr>
+          <tr><td>x<sub>3</sub></td><td>y<sub>3</sub></td></tr>
+          <tr><td>x<sub>4</sub></td><td>y<sub>4</sub></td></tr>
+        </table>
+      </span>
+    </div>
+
+    <p><b>Numerical, at the current probe and element:</b></p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="math-inline">J</span>
+      <span class="eq">=</span>
+      <span class="mat" id="mat-J"></span>
+      <span class="eq">,&nbsp; |<span class="math-inline">J</span>| =</span>
+      <span class="num" id="val-detJ" style="font-size:0.95rem; font-weight:700;">
+        0.0000</span>
+    </div>
+
+    <div class="num-box" id="nbox-Jexpand"></div>
+    <div id="jac-warn"></div>
+  </div>
+
+  <!-- ==================== STEP 5 ==================== -->
+  <div class="step">
+    <h2>5. Inverse Jacobian &nbsp;
+      <span class="math-inline">&Gamma; = J<sup>&minus;1</sup></span></h2>
+    <p>
+      Inverting <span class="math-inline">J</span> closes the chain rule
+      and lets us pull derivatives into physical coords:
+    </p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="mat sym">
+        <table>
+          <tr><td>u<sub>,x</sub></td></tr><tr><td>u<sub>,y</sub></td></tr>
+        </table>
+      </span>
+      <span class="eq">=</span>
+      <span class="math-inline"><b>&Gamma;</b></span>
+      <span class="mat sym">
+        <table>
+          <tr><td>u<sub>,&xi;</sub></td></tr><tr><td>u<sub>,&eta;</sub></td></tr>
+        </table>
+      </span>
+      <span class="eq">,&nbsp;</span>
+      <span class="math-inline"><b>&Gamma;</b></span>
+      <span class="eq">= (1/|J|)</span>
+      <span class="mat sym">
+        <table>
+          <tr><td>&nbsp;J<sub>22</sub></td><td>&minus;J<sub>12</sub></td></tr>
+          <tr><td>&minus;J<sub>21</sub></td><td>&nbsp;J<sub>11</sub></td></tr>
+        </table>
+      </span>
+    </div>
+
+    <p><b>Numerical:</b></p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="math-inline"><b>&Gamma;</b></span>
+      <span class="eq">=</span>
+      <span class="mat" id="mat-Gamma"></span>
+    </div>
+  </div>
+
+  <!-- ==================== STEP 6 ==================== -->
+  <div class="step">
+    <h2>6. Shape-function derivatives in (x,y)</h2>
+    <p>
+      Apply <span class="math-inline"><b>&Gamma;</b></span> to each
+      column of <span class="math-inline">D</span>:
+    </p>
+    <div class="math-block">
+      <span class="mat sym">
+        <table>
+          <tr><td>N<sub>i,x</sub></td></tr><tr><td>N<sub>i,y</sub></td></tr>
+        </table>
+      </span>
+      = <b>&Gamma;</b>
+      <span class="mat sym">
+        <table>
+          <tr><td>N<sub>i,&xi;</sub></td></tr><tr><td>N<sub>i,&eta;</sub></td></tr>
+        </table>
+      </span>
+    </div>
+    <p><b>At the current probe:</b></p>
+    <div style="overflow-x:auto">
+      <table style="margin:4px auto 4px auto; font-size:0.82rem;
+                    border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f1f5f9; color:#334155;">
+            <th style="padding:4px 10px; border-bottom:1px solid #cbd5e1;">i</th>
+            <th style="padding:4px 10px; border-bottom:1px solid #cbd5e1;">
+              N<sub>i,x</sub></th>
+            <th style="padding:4px 10px; border-bottom:1px solid #cbd5e1;">
+              N<sub>i,y</sub></th>
+          </tr>
+        </thead>
+        <tbody id="tbl-dNxy"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== STEP 7 ==================== -->
+  <div class="step" style="grid-column: 1 / -1;">
+    <h2>7. Strain&ndash;displacement matrix &nbsp;
+      <span class="math-inline">B = F &middot; G &middot; H</span></h2>
+
+    <p class="subsub">Block structure.</p>
+    <p>
+      The four natural derivatives of <span class="math-inline">(u,v)</span>
+      come from <span class="math-inline">H</span> acting on the 8
+      nodal DOFs:
+    </p>
+    <div style="text-align:center; margin: 8px 0;">
+      <span class="mat sym">
+        <table>
+          <tr><td>u<sub>,&xi;</sub></td></tr>
+          <tr><td>u<sub>,&eta;</sub></td></tr>
+          <tr><td>v<sub>,&xi;</sub></td></tr>
+          <tr><td>v<sub>,&eta;</sub></td></tr>
+        </table>
+      </span>
+      <span class="eq">=</span>
+      <span class="math-inline">H</span>
+      <span class="mat sym">
+        <table>
+          <tr><td>u<sub>1</sub></td></tr><tr><td>v<sub>1</sub></td></tr>
+          <tr><td>u<sub>2</sub></td></tr><tr><td>v<sub>2</sub></td></tr>
+          <tr><td>u<sub>3</sub></td></tr><tr><td>v<sub>3</sub></td></tr>
+          <tr><td>u<sub>4</sub></td></tr><tr><td>v<sub>4</sub></td></tr>
+        </table>
+      </span>
+    </div>
+    <p>
+      Next <span class="math-inline">G = diag(&Gamma;,&Gamma;)</span>
+      converts them to Cartesian derivatives, and
+      <span class="math-inline">F</span> extracts the three engineering
+      strain components:
+    </p>
+    <div class="math-block">
+      F =
+      <span class="mat" style="vertical-align:middle;">
+        <table>
+          <tr><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+          <tr><td>0</td><td>0</td><td>0</td><td>1</td></tr>
+          <tr><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+        </table>
+      </span>
+      &nbsp; &rArr; &nbsp;
+      <span class="math-inline">&epsilon;<sub>x</sub>=u<sub>,x</sub></span>,
+      <span class="math-inline">&epsilon;<sub>y</sub>=v<sub>,y</sub></span>,
+      <span class="math-inline">&gamma;<sub>xy</sub>=u<sub>,y</sub>+v<sub>,x</sub></span>.
+    </div>
+
+    <p class="subsub">Live 3&times;8 result (at the probe):</p>
+    <div class="num-box" style="white-space:pre; line-height:1.55" id="box-B"></div>
+
+    <p class="subsub">Element stiffness integral.</p>
+    <p>
+      The area element transforms as
+      <span class="math-inline">dx&thinsp;dy = |J|&thinsp;d&xi;&thinsp;d&eta;</span>,
+      so the 8&times;8 element stiffness is
+    </p>
+    <div class="math-block" style="text-align:center">
+      <b>k</b> = &int;<sub>&minus;1</sub><sup>1</sup>
+                &int;<sub>&minus;1</sub><sup>1</sup>
+                <b>B</b><sup>T</sup> <b>E</b> <b>B</b>&thinsp;
+                <span class="math-inline">t</span>&thinsp;
+                |<span class="math-inline">J</span>|&thinsp;
+                d&xi;&thinsp;d&eta;,
+    </div>
+    <p>
+      usually evaluated by 2&times;2 Gauss quadrature (four sample
+      points at <span class="math-inline">&xi;,&eta; = &plusmn;1/&radic;3</span>).
+      Because <span class="math-inline">B</span> and
+      <span class="math-inline">|J|</span> both depend on
+      <span class="math-inline">(&xi;,&eta;)</span> for any
+      non-rectangular element, analytic integration is not practical.
+    </p>
+
+    <div class="key">
+      <b>Physical meaning of <span class="math-inline">|J|</span>.</b>
+      A small patch <span class="math-inline">d&xi;&thinsp;d&eta;</span>
+      in the parent square maps to a patch of area
+      <span class="math-inline">|J|&thinsp;d&xi;&thinsp;d&eta;</span>
+      in the actual element.
+      When <span class="math-inline">|J| &gt; 0</span> the mapping is
+      orientation-preserving and one-to-one; when
+      <span class="math-inline">|J| &le; 0</span> somewhere inside the
+      parent square the element is degenerate and its inverse Jacobian
+      blows up &mdash; try the <b>Near-degenerate</b> preset and drag
+      the probe around to see <span class="math-inline">|J|</span>
+      flip sign.
+    </div>
+  </div>
+
+</div><!-- /deriv-grid -->
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+// Nodes of the actual element in (x,y), CCW from bottom-left.
+const PRESETS = {
+  undistorted: [[0.5,0.5],[3.5,0.5],[3.5,3.5],[0.5,3.5]],
+  parallelogram:[[0.5,0.5],[3.5,0.7],[4.3,3.5],[1.3,3.3]],
+  trapezoid:   [[0.3,0.5],[3.7,0.5],[2.9,3.3],[1.1,3.3]],
+  distorted:   [[0.4,0.6],[3.2,0.3],[3.6,3.2],[0.8,2.9]],
+  near_bad:    [[0.3,0.3],[3.5,0.5],[1.3,1.0],[0.2,3.5]],
+};
+let nodes = PRESETS.distorted.map(n => [...n]);
+let xiP = 0, etaP = 0;             // probe location in parent coords
+let dragging = null;               // 'probe', 'node-0'..'node-3'
+let hoverTarget = null;
+
+// ============================================================
+//  SHAPE FUNCTIONS
+// ============================================================
+function N(xi, eta) {
+  return [
+    0.25*(1-xi)*(1-eta),
+    0.25*(1+xi)*(1-eta),
+    0.25*(1+xi)*(1+eta),
+    0.25*(1-xi)*(1+eta),
+  ];
+}
+function dNdXi(xi, eta) {
+  return [
+    -0.25*(1-eta),
+     0.25*(1-eta),
+     0.25*(1+eta),
+    -0.25*(1+eta),
+  ];
+}
+function dNdEta(xi, eta) {
+  return [
+    -0.25*(1-xi),
+    -0.25*(1+xi),
+     0.25*(1+xi),
+     0.25*(1-xi),
+  ];
+}
+
+// ============================================================
+//  MAP, JACOBIAN, GAMMA
+// ============================================================
+function mapPt(xi, eta) {
+  const n = N(xi, eta);
+  let x=0, y=0;
+  for (let i=0;i<4;i++) { x += n[i]*nodes[i][0]; y += n[i]*nodes[i][1]; }
+  return [x, y];
+}
+function jacobian(xi, eta) {
+  const ds = dNdXi(xi, eta), dt = dNdEta(xi, eta);
+  let J00=0, J01=0, J10=0, J11=0;
+  for (let i=0;i<4;i++) {
+    J00 += ds[i]*nodes[i][0]; // x_,xi
+    J01 += ds[i]*nodes[i][1]; // y_,xi
+    J10 += dt[i]*nodes[i][0]; // x_,eta
+    J11 += dt[i]*nodes[i][1]; // y_,eta
+  }
+  const det = J00*J11 - J01*J10;
+  return { J: [[J00,J01],[J10,J11]], det, ds, dt };
+}
+
+// ============================================================
+//  CANVAS COORDINATE TRANSFORMS
+// ============================================================
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cv.getBoundingClientRect();
+  cv.width  = rect.width  * dpr;
+  cv.height = rect.height * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { ctx, W: rect.width, H: rect.height };
+}
+// Parent canvas: map (xi,eta) in [-1.4,1.4] -> pixels
+function parentTransform(W, H) {
+  const pad = 30;
+  const sc = Math.min((W-2*pad)/2.8, (H-2*pad)/2.8);
+  const ox = W/2, oy = H/2;
+  return {
+    to: (xi, eta) => [ox + xi*sc, oy - eta*sc],
+    from: (px, py) => [(px-ox)/sc, -(py-oy)/sc],
+    sc,
+  };
+}
+// Actual canvas: fit bounding box of nodes with padding
+let actualTF = null;
+function actualTransform(W, H) {
+  const xs = nodes.map(n=>n[0]), ys = nodes.map(n=>n[1]);
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const cx=(xmin+xmax)/2, cy=(ymin+ymax)/2;
+  const spanX = Math.max(xmax-xmin, 1), spanY = Math.max(ymax-ymin, 1);
+  const pad = 40;
+  const sc = Math.min((W-2*pad)/(spanX*1.25), (H-2*pad)/(spanY*1.25));
+  const ox = W/2 - cx*sc, oy = H/2 + cy*sc;
+  return {
+    to: (x, y) => [ox + x*sc, oy - y*sc],
+    from: (px, py) => [(px-ox)/sc, -(py-oy)/sc],
+    sc,
+  };
+}
+
+// ============================================================
+//  DRAWING
+// ============================================================
+function drawParent() {
+  const cv = document.getElementById('cv-parent');
+  const { ctx, W, H } = setupCanvas(cv);
+  const T = parentTransform(W, H);
+  ctx.clearRect(0,0,W,H);
+
+  // background
+  ctx.fillStyle = '#fdfefe';
+  ctx.fillRect(0,0,W,H);
+
+  const showGrid = document.getElementById('chk-grid').checked;
+
+  // shade |J| < 0 region in parent space
+  const M = 40;
+  ctx.fillStyle = 'rgba(220,38,38,0.22)';
+  for (let i=0;i<M;i++) {
+    for (let j=0;j<M;j++) {
+      const xi0 = -1 + 2*i/M,     et0 = -1 + 2*j/M;
+      const xi1 = -1 + 2*(i+1)/M, et1 = -1 + 2*(j+1)/M;
+      const { det } = jacobian((xi0+xi1)/2, (et0+et1)/2);
+      if (det < 0) {
+        const p00 = T.to(xi0, et0), p10 = T.to(xi1, et0);
+        const p11 = T.to(xi1, et1), p01 = T.to(xi0, et1);
+        ctx.beginPath();
+        ctx.moveTo(p00[0],p00[1]); ctx.lineTo(p10[0],p10[1]);
+        ctx.lineTo(p11[0],p11[1]); ctx.lineTo(p01[0],p01[1]);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  // grid lines
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(59,130,246,0.25)';
+    ctx.lineWidth = 1;
+    const K = 8;
+    for (let i=0;i<=K;i++) {
+      const t = -1 + 2*i/K;
+      // xi = t
+      ctx.beginPath();
+      const p1 = T.to(t,-1), p2 = T.to(t, 1);
+      ctx.moveTo(p1[0],p1[1]); ctx.lineTo(p2[0],p2[1]); ctx.stroke();
+      // eta = t
+      ctx.beginPath();
+      const q1 = T.to(-1, t), q2 = T.to( 1, t);
+      ctx.moveTo(q1[0],q1[1]); ctx.lineTo(q2[0],q2[1]); ctx.stroke();
+    }
+  }
+
+  // axes
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  const xA1 = T.to(-1.3, 0), xA2 = T.to(1.3, 0);
+  ctx.moveTo(xA1[0],xA1[1]); ctx.lineTo(xA2[0],xA2[1]);
+  const yA1 = T.to(0, -1.3), yA2 = T.to(0, 1.3);
+  ctx.moveTo(yA1[0],yA1[1]); ctx.lineTo(yA2[0],yA2[1]);
+  ctx.stroke();
+  drawArrowHead(ctx, xA2[0], xA2[1], 0, '#555');
+  drawArrowHead(ctx, yA2[0], yA2[1], Math.PI/2, '#555');
+  ctx.fillStyle='#555'; ctx.font='italic 13px serif';
+  ctx.fillText('ξ', xA2[0]+4, xA2[1]+4);
+  ctx.fillText('η', yA2[0]+4, yA2[1]-4);
+
+  // parent square
+  const c1=T.to(-1,-1), c2=T.to(1,-1), c3=T.to(1,1), c4=T.to(-1,1);
+  ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=2.5;
+  ctx.beginPath();
+  ctx.moveTo(c1[0],c1[1]);
+  ctx.lineTo(c2[0],c2[1]);
+  ctx.lineTo(c3[0],c3[1]);
+  ctx.lineTo(c4[0],c4[1]); ctx.closePath(); ctx.stroke();
+  ctx.fillStyle='rgba(30,58,95,0.05)'; ctx.fill();
+
+  // nodes
+  const corners = [[-1,-1],[1,-1],[1,1],[-1,1]];
+  for (let i=0;i<4;i++) {
+    const [xi,et] = corners[i];
+    const [sx,sy] = T.to(xi, et);
+    ctx.beginPath(); ctx.arc(sx,sy,7,0,2*Math.PI);
+    ctx.fillStyle='#1e3a5f'; ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i+1, sx, sy);
+  }
+
+  // probe
+  const [psx, psy] = T.to(xiP, etaP);
+  // highlight cross-hair
+  ctx.strokeStyle = 'rgba(22,163,74,0.35)';
+  ctx.setLineDash([4,3]); ctx.lineWidth=1;
+  ctx.beginPath();
+  const hx1 = T.to(-1, etaP), hx2 = T.to(1, etaP);
+  ctx.moveTo(hx1[0],hx1[1]); ctx.lineTo(hx2[0],hx2[1]);
+  const vy1 = T.to(xiP, -1), vy2 = T.to(xiP, 1);
+  ctx.moveTo(vy1[0],vy1[1]); ctx.lineTo(vy2[0],vy2[1]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // probe dot
+  ctx.beginPath(); ctx.arc(psx, psy, 9, 0, 2*Math.PI);
+  ctx.fillStyle = dragging==='probe' ? '#0f6b2d' : '#16a34a';
+  ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+
+  // label probe coords
+  ctx.fillStyle='#166534'; ctx.font='bold 11px monospace';
+  ctx.textAlign='left';
+  ctx.fillText(`(ξ,η) = (${xiP.toFixed(2)}, ${etaP.toFixed(2)})`,
+               psx+12, psy-10);
+}
+
+function drawActual() {
+  const cv = document.getElementById('cv-actual');
+  const { ctx, W, H } = setupCanvas(cv);
+  const T = actualTransform(W, H);
+  actualTF = T;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fdfefe'; ctx.fillRect(0,0,W,H);
+
+  const showGrid = document.getElementById('chk-grid').checked;
+
+  // shade image of |J| < 0 region
+  const M = 40;
+  ctx.fillStyle = 'rgba(220,38,38,0.22)';
+  for (let i=0;i<M;i++) {
+    for (let j=0;j<M;j++) {
+      const xi0 = -1 + 2*i/M,     et0 = -1 + 2*j/M;
+      const xi1 = -1 + 2*(i+1)/M, et1 = -1 + 2*(j+1)/M;
+      const { det } = jacobian((xi0+xi1)/2, (et0+et1)/2);
+      if (det < 0) {
+        const q00 = mapPt(xi0, et0), q10 = mapPt(xi1, et0);
+        const q11 = mapPt(xi1, et1), q01 = mapPt(xi0, et1);
+        const p00 = T.to(q00[0], q00[1]), p10 = T.to(q10[0], q10[1]);
+        const p11 = T.to(q11[0], q11[1]), p01 = T.to(q01[0], q01[1]);
+        ctx.beginPath();
+        ctx.moveTo(p00[0],p00[1]); ctx.lineTo(p10[0],p10[1]);
+        ctx.lineTo(p11[0],p11[1]); ctx.lineTo(p01[0],p01[1]);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  // mapped grid
+  if (showGrid) {
+    ctx.strokeStyle='rgba(59,130,246,0.35)';
+    ctx.lineWidth=1;
+    const K = 8;
+    // xi = const lines
+    for (let i=0;i<=K;i++) {
+      const xi = -1 + 2*i/K;
+      ctx.beginPath();
+      for (let j=0;j<=30;j++) {
+        const et = -1 + 2*j/30;
+        const [x,y] = mapPt(xi, et);
+        const [sx,sy] = T.to(x,y);
+        if (j===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      }
+      ctx.stroke();
+    }
+    // eta = const
+    for (let j=0;j<=K;j++) {
+      const et = -1 + 2*j/K;
+      ctx.beginPath();
+      for (let i=0;i<=30;i++) {
+        const xi = -1 + 2*i/30;
+        const [x,y] = mapPt(xi, et);
+        const [sx,sy] = T.to(x,y);
+        if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // x,y axes (light)
+  ctx.strokeStyle='#aaa'; ctx.lineWidth=1;
+  const xs = nodes.map(n=>n[0]), ys = nodes.map(n=>n[1]);
+  const xmin = Math.min(...xs)-0.3, xmax = Math.max(...xs)+0.3;
+  const ymin = Math.min(...ys)-0.3, ymax = Math.max(...ys)+0.3;
+  ctx.beginPath();
+  const ax1 = T.to(xmin, ymin), ax2 = T.to(xmax, ymin);
+  ctx.moveTo(ax1[0],ax1[1]); ctx.lineTo(ax2[0],ax2[1]);
+  const ay1 = T.to(xmin, ymin), ay2 = T.to(xmin, ymax);
+  ctx.moveTo(ay1[0],ay1[1]); ctx.lineTo(ay2[0],ay2[1]);
+  ctx.stroke();
+  drawArrowHead(ctx, ax2[0], ax2[1], 0, '#aaa');
+  drawArrowHead(ctx, ay2[0], ay2[1], Math.PI/2, '#aaa');
+  ctx.fillStyle='#888'; ctx.font='italic 12px serif';
+  ctx.fillText('x', ax2[0]+4, ax2[1]+4);
+  ctx.fillText('y', ay2[0]+4, ay2[1]-4);
+
+  // element outline
+  ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=2.5;
+  ctx.beginPath();
+  for (let i=0;i<4;i++) {
+    const [sx,sy] = T.to(nodes[i][0], nodes[i][1]);
+    if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+  }
+  ctx.closePath();
+  ctx.fillStyle='rgba(30,58,95,0.06)'; ctx.fill();
+  ctx.stroke();
+
+  // corner nodes (draggable, red)
+  for (let i=0;i<4;i++) {
+    const [sx,sy] = T.to(nodes[i][0], nodes[i][1]);
+    ctx.beginPath(); ctx.arc(sx,sy,11,0,2*Math.PI);
+    ctx.fillStyle = (dragging === `node-${i}`) ? '#991b1b' : '#dc2626';
+    ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 11px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(i+1, sx, sy);
+  }
+
+  // probe point at mapped position
+  const [px, py] = mapPt(xiP, etaP);
+  const [psx, psy] = T.to(px, py);
+
+  // Jacobian columns as arrows at the probe
+  const { J, det } = jacobian(xiP, etaP);
+  if (document.getElementById('chk-jacarrow').checked) {
+    const arrowLen = 0.6; // in natural-coord units of parent
+    // dr/dxi direction: J row 0 = [x_,xi, y_,xi]
+    const vx_xi = J[0][0], vy_xi = J[0][1];
+    const vx_et = J[1][0], vy_et = J[1][1];
+    const pxX = px + arrowLen*vx_xi, pyX = py + arrowLen*vy_xi;
+    const pxE = px + arrowLen*vx_et, pyE = py + arrowLen*vy_et;
+    const [ax1,ay1] = T.to(pxX, pyX);
+    const [ax2,ay2] = T.to(pxE, pyE);
+    drawArrow(ctx, psx, psy, ax1, ay1, '#d946ef', '∂r/∂ξ');
+    drawArrow(ctx, psx, psy, ax2, ay2, '#8b5cf6', '∂r/∂η');
+  }
+
+  // probe dot
+  ctx.beginPath(); ctx.arc(psx, psy, 9, 0, 2*Math.PI);
+  ctx.fillStyle = '#16a34a';
+  ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.fillStyle='#166534'; ctx.font='bold 11px monospace';
+  ctx.textAlign='left';
+  ctx.fillText(`(x,y) = (${px.toFixed(2)}, ${py.toFixed(2)})`,
+               psx+12, psy-10);
+
+  // degeneracy warning
+  if (det <= 0) {
+    ctx.fillStyle='rgba(220,38,38,0.9)';
+    ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('|J| ≤ 0 here — mapping is degenerate!', W/2, H-10);
+  }
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color, label) {
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.stroke();
+  const a=Math.atan2(y2-y1, x2-x1);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-9*Math.cos(a-0.4), y2-9*Math.sin(a-0.4));
+  ctx.lineTo(x2-9*Math.cos(a+0.4), y2-9*Math.sin(a+0.4));
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+  if (label) {
+    ctx.fillStyle=color; ctx.font='bold 10px monospace';
+    ctx.textAlign='left';
+    ctx.fillText(label, x2+6, y2+3);
+  }
+}
+function drawArrowHead(ctx, x, y, ang, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  // axis arrows have y axis angle=PI/2 but screen y is flipped
+  // we pass pre-rotated screen angle
+  const a = (ang === 0) ? 0 : -Math.PI/2;
+  ctx.rotate(a);
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.lineTo(-7, -4);
+  ctx.lineTo(-7,  4);
+  ctx.closePath();
+  ctx.fillStyle=color; ctx.fill();
+  ctx.restore();
+}
+
+// ============================================================
+//  DERIVATION TEXT UPDATES
+// ============================================================
+function fmt(v, w=3) {
+  const s = (v>=0 ? ' ' : '') + v.toFixed(w);
+  return s;
+}
+function fmtCell(v, w=3) { return fmt(v, w); }
+
+function matTable(rows, w=3) {
+  let html = '<table>';
+  for (const r of rows) {
+    html += '<tr>';
+    for (const v of r) html += `<td>${fmtCell(v,w)}</td>`;
+    html += '</tr>';
+  }
+  html += '</table>';
+  return html;
+}
+
+function updateDeriv() {
+  const xi = xiP, et = etaP;
+  const n = N(xi, et);
+  const ds = dNdXi(xi, et);
+  const dt = dNdEta(xi, et);
+  const [x, y] = mapPt(xi, et);
+  const { J, det } = jacobian(xi, et);
+
+  // Readouts (don't stomp on the input the user is typing into)
+  const rdXi = document.getElementById('rd-xi');
+  const rdEta = document.getElementById('rd-eta');
+  if (document.activeElement !== rdXi) rdXi.value = xi.toFixed(3);
+  if (document.activeElement !== rdEta) rdEta.value = et.toFixed(3);
+  document.getElementById('rd-x').textContent = x.toFixed(3);
+  document.getElementById('rd-y').textContent = y.toFixed(3);
+  const rdDet = document.getElementById('rd-detJ');
+  rdDet.textContent = det.toFixed(4);
+  rdDet.style.color = det > 0 ? '#15803d'
+                    : det < 0 ? '#dc2626' : '#888';
+  rdDet.style.fontWeight = '700';
+  document.getElementById('rd-sumN').textContent =
+    (n[0]+n[1]+n[2]+n[3]).toFixed(3);
+
+  // Step 1: shape function values
+  document.getElementById('nbox-N').innerHTML =
+    `<div>N₁ = ¼(1−${xi.toFixed(2)})(1−${et.toFixed(2)}) = <span class="hi">${n[0].toFixed(4)}</span></div>` +
+    `<div>N₂ = ¼(1+${xi.toFixed(2)})(1−${et.toFixed(2)}) = <span class="hi">${n[1].toFixed(4)}</span></div>` +
+    `<div>N₃ = ¼(1+${xi.toFixed(2)})(1+${et.toFixed(2)}) = <span class="hi">${n[2].toFixed(4)}</span></div>` +
+    `<div>N₄ = ¼(1−${xi.toFixed(2)})(1+${et.toFixed(2)}) = <span class="hi">${n[3].toFixed(4)}</span></div>`;
+
+  // Step 2: mapping
+  // row of N values
+  document.getElementById('mat-Nrow').innerHTML =
+    `<table>
+       <tr><td>${n[0].toFixed(3)}</td><td>${n[1].toFixed(3)}</td>
+           <td>${n[2].toFixed(3)}</td><td>${n[3].toFixed(3)}</td></tr>
+     </table>`;
+  document.getElementById('mat-Nrow').className = 'mat';
+  // nodal coords 4x2
+  let xyHtml = '<table>';
+  for (let i=0;i<4;i++) {
+    xyHtml += `<tr><td>${nodes[i][0].toFixed(2)}</td>
+                   <td>${nodes[i][1].toFixed(2)}</td></tr>`;
+  }
+  xyHtml += '</table>';
+  document.getElementById('mat-XY').innerHTML = xyHtml;
+  document.getElementById('mat-XY').className = 'mat';
+  document.getElementById('nbox-map').innerHTML =
+    `x = ${n[0].toFixed(3)}·${nodes[0][0].toFixed(2)} + ` +
+    `${n[1].toFixed(3)}·${nodes[1][0].toFixed(2)} + ` +
+    `${n[2].toFixed(3)}·${nodes[2][0].toFixed(2)} + ` +
+    `${n[3].toFixed(3)}·${nodes[3][0].toFixed(2)} = <span class="hi">${x.toFixed(4)}</span>\n` +
+    `y = ${n[0].toFixed(3)}·${nodes[0][1].toFixed(2)} + ` +
+    `${n[1].toFixed(3)}·${nodes[1][1].toFixed(2)} + ` +
+    `${n[2].toFixed(3)}·${nodes[2][1].toFixed(2)} + ` +
+    `${n[3].toFixed(3)}·${nodes[3][1].toFixed(2)} = <span class="hi">${y.toFixed(4)}</span>`;
+
+  // Step 3: derivatives table + D matrix
+  let tbl = '';
+  for (let i=0;i<4;i++) {
+    tbl += `<tr>
+      <td style="padding:3px 10px; text-align:center; color:#334155;">${i+1}</td>
+      <td style="padding:3px 10px; text-align:right; font-family:monospace;">${ds[i].toFixed(4)}</td>
+      <td style="padding:3px 10px; text-align:right; font-family:monospace;">${dt[i].toFixed(4)}</td>
+    </tr>`;
+  }
+  document.getElementById('tbl-dN').innerHTML = tbl;
+  document.getElementById('mat-D').innerHTML = matTable(
+    [[ds[0],ds[1],ds[2],ds[3]],
+     [dt[0],dt[1],dt[2],dt[3]]], 4);
+
+  // Step 4: Jacobian
+  document.getElementById('mat-J').innerHTML = matTable(J, 4);
+  const detEl = document.getElementById('val-detJ');
+  detEl.textContent = det.toFixed(4);
+  detEl.style.color = det > 0 ? '#15803d' : '#dc2626';
+
+  document.getElementById('nbox-Jexpand').innerHTML =
+    `J₁₁ = x,ξ = Σ Nᵢ,ξ · xᵢ = ${J[0][0].toFixed(4)}\n` +
+    `J₁₂ = y,ξ = Σ Nᵢ,ξ · yᵢ = ${J[0][1].toFixed(4)}\n` +
+    `J₂₁ = x,η = Σ Nᵢ,η · xᵢ = ${J[1][0].toFixed(4)}\n` +
+    `J₂₂ = y,η = Σ Nᵢ,η · yᵢ = ${J[1][1].toFixed(4)}\n` +
+    `|J| = J₁₁·J₂₂ − J₂₁·J₁₂ = ${(J[0][0]*J[1][1]).toFixed(4)} − ${(J[1][0]*J[0][1]).toFixed(4)} = ${det.toFixed(4)}`;
+
+  document.getElementById('jac-warn').innerHTML = det > 0
+    ? `<div class="key" style="margin-top:8px">|J| &gt; 0: mapping is
+        orientation-preserving and invertible at this probe.</div>`
+    : `<div class="bad" style="margin-top:8px"><b>|J| &le; 0</b> at
+        this probe &mdash; the parent-to-actual map has folded or
+        collapsed. Strains cannot be recovered here; the element is
+        geometrically invalid.</div>`;
+
+  // Step 5: Gamma
+  let Gamma = [[0,0],[0,0]];
+  if (Math.abs(det) > 1e-12) {
+    Gamma = [
+      [ J[1][1]/det, -J[0][1]/det],
+      [-J[1][0]/det,  J[0][0]/det],
+    ];
+  }
+  document.getElementById('mat-Gamma').innerHTML = matTable(Gamma, 4);
+
+  // Step 6: dN/dx, dN/dy
+  let tbl2 = '';
+  const dNdx = [], dNdy = [];
+  for (let i=0;i<4;i++) {
+    const a = Gamma[0][0]*ds[i] + Gamma[0][1]*dt[i];
+    const b = Gamma[1][0]*ds[i] + Gamma[1][1]*dt[i];
+    dNdx.push(a); dNdy.push(b);
+    tbl2 += `<tr>
+      <td style="padding:3px 10px; text-align:center; color:#334155;">${i+1}</td>
+      <td style="padding:3px 10px; text-align:right; font-family:monospace;">${a.toFixed(4)}</td>
+      <td style="padding:3px 10px; text-align:right; font-family:monospace;">${b.toFixed(4)}</td>
+    </tr>`;
+  }
+  document.getElementById('tbl-dNxy').innerHTML = tbl2;
+
+  // Step 7: full 3x8 B matrix
+  const B = [[0,0,0,0,0,0,0,0],
+             [0,0,0,0,0,0,0,0],
+             [0,0,0,0,0,0,0,0]];
+  for (let i=0;i<4;i++) {
+    B[0][2*i]   = dNdx[i];          // eps_x <- u_,x
+    B[1][2*i+1] = dNdy[i];          // eps_y <- v_,y
+    B[2][2*i]   = dNdy[i];          // gamma_xy <- u_,y
+    B[2][2*i+1] = dNdx[i];          //          + v_,x
+  }
+  const headerCols =
+    ['u1','v1','u2','v2','u3','v3','u4','v4'];
+  let Bstr = '         ' +
+    headerCols.map(c => c.padStart(9)).join(' ') + '\n';
+  const rowNames = ['εx  :', 'εy  :', 'γxy :'];
+  for (let r=0;r<3;r++) {
+    Bstr += rowNames[r] + '  ' +
+      B[r].map(v => {
+        const s = v.toFixed(4);
+        return (v>=0 ? ' ' : '') + s;
+      }).map(s => s.padStart(9)).join(' ') + '\n';
+  }
+  document.getElementById('box-B').textContent = Bstr;
+}
+
+// ============================================================
+//  INTERACTION
+// ============================================================
+function pickHit(cv, clientX, clientY, targets) {
+  const r = cv.getBoundingClientRect();
+  const mx = clientX - r.left, my = clientY - r.top;
+  for (const t of targets) {
+    if (Math.hypot(mx - t.x, my - t.y) < (t.r || 14))
+      return { id: t.id, mx, my };
+  }
+  return { id: null, mx, my };
+}
+
+// --- parent canvas: probe drag only ---
+const cvP = document.getElementById('cv-parent');
+function parentTargets() {
+  const rect = cvP.getBoundingClientRect();
+  const T = parentTransform(rect.width, rect.height);
+  const [sx, sy] = T.to(xiP, etaP);
+  return [{ id:'probe', x:sx, y:sy, r:15 }];
+}
+cvP.addEventListener('mousedown', (e) => {
+  const hit = pickHit(cvP, e.clientX, e.clientY, parentTargets());
+  if (hit.id === 'probe') { dragging='probe'; updateCursor(cvP, 'grabbing'); }
+  else {
+    // click anywhere to jump probe
+    const rect = cvP.getBoundingClientRect();
+    const T = parentTransform(rect.width, rect.height);
+    const [xi, et] = T.from(hit.mx, hit.my);
+    xiP = Math.max(-1, Math.min(1, xi));
+    etaP = Math.max(-1, Math.min(1, et));
+    dragging='probe';
+    redrawAll();
+  }
+});
+cvP.addEventListener('mousemove', (e) => {
+  const rect = cvP.getBoundingClientRect();
+  const T = parentTransform(rect.width, rect.height);
+  if (dragging === 'probe') {
+    const [xi, et] = T.from(e.clientX-rect.left, e.clientY-rect.top);
+    xiP = Math.max(-1, Math.min(1, xi));
+    etaP = Math.max(-1, Math.min(1, et));
+    redrawAll();
+  } else {
+    const hit = pickHit(cvP, e.clientX, e.clientY, parentTargets());
+    updateCursor(cvP, hit.id ? 'grab' : 'crosshair');
+  }
+});
+cvP.addEventListener('mouseup', () => {
+  if (dragging === 'probe') dragging=null;
+  updateCursor(cvP, 'crosshair');
+});
+cvP.addEventListener('mouseleave', () => {
+  if (dragging === 'probe') dragging=null;
+  updateCursor(cvP, 'crosshair');
+});
+
+// --- actual canvas: corner-node drag ---
+const cvA = document.getElementById('cv-actual');
+function actualTargets() {
+  const rect = cvA.getBoundingClientRect();
+  const T = actualTransform(rect.width, rect.height);
+  const targets = [];
+  for (let i=0;i<4;i++) {
+    const [sx, sy] = T.to(nodes[i][0], nodes[i][1]);
+    targets.push({ id:`node-${i}`, x:sx, y:sy, r:16 });
+  }
+  return targets;
+}
+cvA.addEventListener('mousedown', (e) => {
+  const hit = pickHit(cvA, e.clientX, e.clientY, actualTargets());
+  if (hit.id) { dragging = hit.id; updateCursor(cvA, 'grabbing'); }
+});
+cvA.addEventListener('mousemove', (e) => {
+  const rect = cvA.getBoundingClientRect();
+  if (dragging && dragging.startsWith('node-')) {
+    const T = actualTransform(rect.width, rect.height);
+    const i = parseInt(dragging.split('-')[1], 10);
+    const [x, y] = T.from(e.clientX-rect.left, e.clientY-rect.top);
+    nodes[i] = [x, y];
+    redrawAll();
+  } else {
+    const hit = pickHit(cvA, e.clientX, e.clientY, actualTargets());
+    updateCursor(cvA, hit.id ? 'grab' : 'default');
+  }
+});
+cvA.addEventListener('mouseup', () => {
+  if (dragging && dragging.startsWith('node-')) dragging=null;
+  updateCursor(cvA, 'default');
+});
+cvA.addEventListener('mouseleave', () => {
+  if (dragging && dragging.startsWith('node-')) dragging=null;
+});
+
+// Touch support
+function touchHandler(cv, onStart, onMove) {
+  cv.addEventListener('touchstart', (e) => {
+    if (!e.touches[0]) return;
+    e.preventDefault();
+    onStart(e.touches[0]);
+  }, { passive:false });
+  cv.addEventListener('touchmove', (e) => {
+    if (!e.touches[0]) return;
+    e.preventDefault();
+    onMove(e.touches[0]);
+  }, { passive:false });
+  cv.addEventListener('touchend', () => { dragging=null; });
+}
+touchHandler(cvP,
+  (t) => {
+    const hit = pickHit(cvP, t.clientX, t.clientY, parentTargets());
+    if (hit.id) { dragging='probe'; }
+    else {
+      const rect = cvP.getBoundingClientRect();
+      const T = parentTransform(rect.width, rect.height);
+      const [xi, et] = T.from(hit.mx, hit.my);
+      xiP = Math.max(-1, Math.min(1, xi));
+      etaP = Math.max(-1, Math.min(1, et));
+      dragging='probe';
+      redrawAll();
+    }
+  },
+  (t) => {
+    if (dragging !== 'probe') return;
+    const rect = cvP.getBoundingClientRect();
+    const T = parentTransform(rect.width, rect.height);
+    const [xi, et] = T.from(t.clientX-rect.left, t.clientY-rect.top);
+    xiP = Math.max(-1, Math.min(1, xi));
+    etaP = Math.max(-1, Math.min(1, et));
+    redrawAll();
+  }
+);
+touchHandler(cvA,
+  (t) => {
+    const hit = pickHit(cvA, t.clientX, t.clientY, actualTargets());
+    if (hit.id) { dragging = hit.id; }
+  },
+  (t) => {
+    if (!dragging || !dragging.startsWith('node-')) return;
+    const rect = cvA.getBoundingClientRect();
+    const T = actualTransform(rect.width, rect.height);
+    const i = parseInt(dragging.split('-')[1], 10);
+    const [x, y] = T.from(t.clientX-rect.left, t.clientY-rect.top);
+    nodes[i] = [x, y];
+    redrawAll();
+  }
+);
+
+function updateCursor(cv, c) { cv.style.cursor = c; }
+
+// ============================================================
+//  ACTIONS
+// ============================================================
+function loadPreset(name) {
+  if (!PRESETS[name]) return;
+  nodes = PRESETS[name].map(n => [...n]);
+  xiP = 0; etaP = 0;
+  redrawAll();
+}
+function onProbeInput() {
+  const xiVal = parseFloat(document.getElementById('rd-xi').value);
+  const etVal = parseFloat(document.getElementById('rd-eta').value);
+  if (!isNaN(xiVal)) xiP = Math.max(-1, Math.min(1, xiVal));
+  if (!isNaN(etVal)) etaP = Math.max(-1, Math.min(1, etVal));
+  redrawAll();
+}
+
+function redrawAll() {
+  drawParent();
+  drawActual();
+  updateDeriv();
+}
+
+window.addEventListener('resize', redrawAll);
+cvP.style.cursor = 'crosshair';
+redrawAll();
+</script>
+
+</body>
+</html>
