@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Numerical Integration Playground &mdash; CE/ME 532</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #f5f7fa; color: #222;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, #1e3a5f, #2563eb);
+    color: #fff; padding: 28px 20px; text-align: center;
+  }
+  header h1 { font-size: 1.55rem; font-weight: 700; }
+  header p  { margin-top: 6px; font-size: 0.95rem; opacity: 0.85; }
+  header a  { color: #cfe2ff; text-decoration: none; }
+  main {
+    max-width: 1200px; margin: 0 auto; padding: 22px 18px 40px;
+  }
+  .panel {
+    background: #fff; border-radius: 10px; padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 18px;
+  }
+  .panel h2 {
+    color: #1e3a5f; font-size: 1.1rem; font-weight: 700;
+    margin-bottom: 10px; border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 6px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 18px; }
+  .row > .col { flex: 1 1 300px; min-width: 260px; }
+  label.inline {
+    display: inline-flex; align-items: center;
+    margin-right: 10px; gap: 5px;
+    font-size: 0.88rem;
+  }
+  select, button {
+    padding: 5px 10px; border: 1px solid #b8c2d4; border-radius: 6px;
+    background: #fff; font-size: 0.88rem;
+    font-family: inherit;
+  }
+  button {
+    background: #2563eb; color: #fff; border-color: #1e4fb8;
+    cursor: pointer; transition: background 0.12s ease;
+  }
+  button:hover  { background: #1e4fb8; }
+  button:active { background: #173d8f; }
+  button.gray   { background: #64748b; border-color: #475569; }
+  button.gray:hover { background: #475569; }
+  input[type="range"] { width: 140px; vertical-align: middle; }
+  .slider-row {
+    display: flex; flex-wrap: wrap; gap: 10px 16px;
+    margin-top: 8px; font-size: 0.82rem;
+  }
+  .slider-row label {
+    display: flex; align-items: center; gap: 6px;
+    color: #333;
+  }
+  .slider-row .val {
+    display: inline-block; width: 46px; text-align: right;
+    font-family: 'Consolas', monospace; color: #1e3a5f;
+  }
+  canvas { display: block; background: #fff; border: 1px solid #e2e8f0;
+           border-radius: 6px; }
+  .readout {
+    display: grid; grid-template-columns: auto 1fr; gap: 3px 12px;
+    font-family: 'Consolas', monospace; font-size: 0.88rem;
+    margin-top: 8px;
+  }
+  .readout b { color: #1e3a5f; font-weight: 600; }
+  .readout span { color: #111; }
+  .err-pos { color: #c0392b; }
+  .err-neg { color: #1f7a3a; }
+  .err-zero { color: #64748b; }
+  .gauges {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px; margin-top: 8px;
+  }
+  .gauge {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+    padding: 6px 8px; font-family: 'Consolas', monospace;
+    font-size: 0.78rem;
+  }
+  .gauge .k { color: #64748b; font-size: 0.72rem; }
+  .gauge .bar {
+    height: 6px; background: #e2e8f0; border-radius: 3px;
+    margin-top: 3px; position: relative; overflow: hidden;
+  }
+  .gauge .fill {
+    position: absolute; left: 50%; top: 0; height: 100%;
+    width: 0%; transition: width 0.15s ease, background 0.15s ease;
+  }
+  .gauge .fill.ok { background: #22c55e; }
+  .gauge .fill.bad { background: #ef4444; }
+  .note {
+    font-size: 0.82rem; color: #475569; margin-top: 6px;
+    line-height: 1.45;
+  }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-size: 0.82rem; color: #475569; margin-top: 6px;
+  }
+  .legend span::before {
+    content: ""; display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; margin-right: 5px; vertical-align: middle;
+  }
+  .legend .curve::before   { background: #2563eb; border-radius: 0; height: 2px;
+                             width: 16px; }
+  .legend .sample::before  { background: #dc2626; }
+  .legend .weight::before  { background: #fbbf24; border-radius: 0; }
+  .legend .truth::before   { background: #15803d; border-radius: 0; height: 2px;
+                             width: 16px; }
+  .legend .box::before     { background: #94a3b8; border-radius: 0; }
+  .legend .rain::before    { background: #3b82f6; }
+  .legend .hit::before     { background: #22c55e; }
+  .legend .miss::before    { background: #cbd5e1; }
+  .back-link {
+    display: inline-block; margin-bottom: 10px;
+    color: #2563eb; text-decoration: none; font-size: 0.88rem;
+  }
+  .back-link:hover { text-decoration: underline; }
+  footer {
+    text-align: center; padding: 20px 16px;
+    font-size: 0.78rem; color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Numerical Integration Playground</h1>
+  <p>
+    Midpoint &middot; Simpson &middot; Gauss&ndash;Legendre &middot;
+    Monte-Carlo &middot;
+    <a href="index.html">&larr; Back to index</a>
+  </p>
+</header>
+
+<main>
+
+<!-- ===================== Controls + Main Plot ===================== -->
+<div class="panel">
+  <h2>1. Pick a function and an integration rule</h2>
+
+  <div class="row">
+    <div class="col">
+      <label class="inline">
+        Function:
+        <select id="funcPreset">
+          <option value="poly">polynomial (use sliders below)</option>
+          <option value="poly3">smooth cubic 1 + &xi; &minus; 0.4&xi;&sup2; + 0.6&xi;&sup3;</option>
+          <option value="poly5">polynomial of degree 5 (for Gauss n=3 exactness)</option>
+          <option value="sin">sin(&pi;&xi;) + 0.5</option>
+          <option value="exp">exp(&xi;) &times; 0.5</option>
+          <option value="abs">|&xi;| + 0.2 &nbsp;(non-smooth!)</option>
+          <option value="runge">1 / (1 + 16&xi;&sup2;) &nbsp;(Runge)</option>
+        </select>
+      </label>
+
+      <div class="slider-row" id="polySliders">
+        <label>a<sub>0</sub> <input type="range" id="a0" min="-2" max="2" step="0.05" value="1.0"><span class="val" id="a0v">1.00</span></label>
+        <label>a<sub>1</sub> <input type="range" id="a1" min="-2" max="2" step="0.05" value="0.6"><span class="val" id="a1v">0.60</span></label>
+        <label>a<sub>2</sub> <input type="range" id="a2" min="-2" max="2" step="0.05" value="-0.4"><span class="val" id="a2v">-0.40</span></label>
+        <label>a<sub>3</sub> <input type="range" id="a3" min="-2" max="2" step="0.05" value="0.5"><span class="val" id="a3v">0.50</span></label>
+        <label>a<sub>4</sub> <input type="range" id="a4" min="-2" max="2" step="0.05" value="0.0"><span class="val" id="a4v">0.00</span></label>
+        <label>a<sub>5</sub> <input type="range" id="a5" min="-2" max="2" step="0.05" value="0.0"><span class="val" id="a5v">0.00</span></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <label class="inline">
+        Rule:
+        <select id="ruleSel">
+          <option value="mid-1">Single midpoint</option>
+          <option value="mid-N">Composite midpoint (N sub-intervals)</option>
+          <option value="trap">Composite trapezoid (N sub-intervals)</option>
+          <option value="simp">Composite Simpson (N sub-intervals, even)</option>
+          <option value="gauss-1">Gauss&ndash;Legendre n=1</option>
+          <option value="gauss-2" selected>Gauss&ndash;Legendre n=2</option>
+          <option value="gauss-3">Gauss&ndash;Legendre n=3</option>
+          <option value="gauss-4">Gauss&ndash;Legendre n=4</option>
+          <option value="gauss-5">Gauss&ndash;Legendre n=5</option>
+          <option value="gauss-6">Gauss&ndash;Legendre n=6</option>
+          <option value="custom">Custom (drag the points)</option>
+        </select>
+      </label>
+      <label class="inline">
+        N / n:
+        <input type="range" id="nSlider" min="1" max="12" step="1" value="2">
+        <span class="val" id="nSliderVal">2</span>
+      </label>
+      <div style="margin-top:8px;">
+        <button id="optimizeBtn">&#9881; Optimize to Gauss (physics)</button>
+        <button class="gray" id="resetCustomBtn">Reset custom points</button>
+      </div>
+      <div class="note" id="ruleNote">
+        Drag the red dots left/right to place samples by hand;
+        weights are auto-chosen by matching monomial moments.
+      </div>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:14px;">
+    <div class="col" style="flex: 2 1 520px;">
+      <canvas id="mainCanvas" width="720" height="320"></canvas>
+      <div class="legend">
+        <span class="curve">f(&xi;)</span>
+        <span class="sample">sample point &xi;<sub>i</sub></span>
+        <span class="weight">weight stem (height &prop; W<sub>i</sub> &middot; f)</span>
+        <span class="truth">exact integral region</span>
+      </div>
+    </div>
+
+    <div class="col" style="flex: 1 1 260px;">
+      <div class="readout">
+        <b>Exact &int;&#8202;f d&xi; :</b> <span id="exactOut">&mdash;</span>
+        <b>Estimate &Sigma; W&#8202;f :</b> <span id="estOut">&mdash;</span>
+        <b>Error :</b> <span id="errOut">&mdash;</span>
+        <b>Rel. error :</b> <span id="relOut">&mdash;</span>
+        <b>Polynomial deg :</b> <span id="polyDegOut">&mdash;</span>
+        <b>Rule exact thru deg :</b> <span id="exactDegOut">&mdash;</span>
+      </div>
+      <div class="note" style="margin-top:10px;">
+        Gauss&ndash;Legendre with <i>n</i> points is exact for every
+        polynomial of degree &le; 2<i>n</i>&minus;1. Try the
+        &ldquo;polynomial of degree 5&rdquo; preset with Gauss n=3:
+        the error should be zero to machine precision.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Moment Gauges ===================== -->
+<div class="panel">
+  <h2>2. Moment-matching gauges &mdash; the heart of the derivation</h2>
+  <div class="note" style="margin-bottom:6px;">
+    Each gauge compares <b>&Sigma;<sub>i</sub> W<sub>i</sub> &xi;<sub>i</sub><sup>k</sup></b>
+    (computed from your points) to
+    <b>&int;<sub>&minus;1</sub><sup>1</sup> &xi;<sup>k</sup> d&xi;</b>
+    (the true moment). A rule with <i>n</i> points has exactly
+    2<i>n</i> free parameters (the positions &xi;<sub>i</sub> and
+    weights W<sub>i</sub>), so it can match 2<i>n</i> moments &mdash;
+    i.e. it is exact for every polynomial of degree &le; 2<i>n</i>&minus;1.
+  </div>
+  <div class="gauges" id="gaugeBox"></div>
+</div>
+
+<!-- ===================== Monte-Carlo rain ===================== -->
+<div class="panel">
+  <h2>3. Monte-Carlo &ldquo;rain&rdquo; (physics-flavored sampling)</h2>
+  <div class="row">
+    <div class="col" style="flex: 2 1 520px;">
+      <canvas id="rainCanvas" width="720" height="260"></canvas>
+      <div class="legend">
+        <span class="rain">raindrop</span>
+        <span class="hit">caught (below curve)</span>
+        <span class="miss">missed (above curve)</span>
+        <span class="box">bounding box</span>
+      </div>
+    </div>
+    <div class="col" style="flex: 1 1 260px;">
+      <button id="rainToggleBtn">Start rain</button>
+      <button class="gray" id="rainClearBtn">Clear</button>
+      <div class="readout" style="margin-top:10px;">
+        <b>Drops so far :</b> <span id="rainTotal">0</span>
+        <b>Caught below f :</b> <span id="rainHits">0</span>
+        <b>MC estimate :</b> <span id="rainEst">&mdash;</span>
+        <b>Exact :</b> <span id="rainExact">&mdash;</span>
+        <b>MC error :</b> <span id="rainErr">&mdash;</span>
+        <b>Gauss n=2 error :</b> <span id="rainGauss">&mdash;</span>
+      </div>
+      <div class="note" style="margin-top:8px;">
+        Drops fall from the top of the bounding box at random
+        &xi;. Those below the curve are &ldquo;caught&rdquo;
+        (green). The integral is approximated by
+        (hits / total) &times; (box area). This is the slowest
+        method on the page &mdash; error shrinks like 1/&radic;N.
+        Notice how many drops it takes to beat a 2-point Gauss rule.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Convergence Plot ===================== -->
+<div class="panel">
+  <h2>4. Convergence &mdash; how fast does each rule get it right?</h2>
+  <div class="row">
+    <div class="col" style="flex: 2 1 520px;">
+      <canvas id="convCanvas" width="720" height="280"></canvas>
+    </div>
+    <div class="col" style="flex: 1 1 240px;">
+      <div class="note">
+        For the currently-selected function, the plot shows the
+        absolute error of each rule as the number of evaluations
+        <i>N</i> grows. Both axes are log-scaled. On a smooth
+        function, Gauss quadrature converges exponentially while
+        the midpoint rule only manages O(1/N&sup2;). On the
+        non-smooth functions (|&xi;| and Runge), the story is
+        messier &mdash; try them and see.
+      </div>
+      <div class="legend" style="margin-top:8px;">
+        <span style="color:#2563eb">&mdash; Gauss&ndash;Legendre</span>
+        <span style="color:#dc2626">&mdash; Simpson (composite)</span>
+        <span style="color:#f59e0b">&mdash; Midpoint (composite)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  CE/ME 532 Finite Element Methods &middot; Spring 2026 &middot;
+  Section 3.6 Numerical Integration
+</footer>
+
+<script>
+/* =====================================================================
+ * Numerical Integration Playground
+ * =====================================================================
+ * Single-file interactive demo: midpoint/trapezoid/Simpson/Gauss-Legendre,
+ * draggable custom points with live moment-matching gauges, a damped
+ * Newton-dynamics "optimizer" that snaps custom points to Gauss-Legendre
+ * roots, a Monte-Carlo rain canvas, and a convergence plot. Pure vanilla
+ * JS, no dependencies.
+ * ===================================================================== */
+
+/* ---------- Hard-coded Gauss-Legendre points (n = 1..6) ---------- */
+const GL = {
+  1: { xi:[0], W:[2] },
+  2: { xi:[-1/Math.sqrt(3), 1/Math.sqrt(3)], W:[1,1] },
+  3: { xi:[-Math.sqrt(0.6), 0, Math.sqrt(0.6)], W:[5/9, 8/9, 5/9] },
+  4: { xi:[-0.861136311594053, -0.339981043584856,
+             0.339981043584856,  0.861136311594053],
+       W :[ 0.347854845137454,  0.652145154862546,
+            0.652145154862546,  0.347854845137454] },
+  5: { xi:[-0.906179845938664, -0.538469310105683, 0,
+             0.538469310105683,  0.906179845938664],
+       W :[ 0.236926885056189,  0.478628670499366, 128/225,
+            0.478628670499366,  0.236926885056189] },
+  6: { xi:[-0.932469514203152, -0.661209386466265, -0.238619186083197,
+             0.238619186083197,  0.661209386466265,  0.932469514203152],
+       W :[ 0.171324492379170,  0.360761573048139,  0.467913934572691,
+            0.467913934572691,  0.360761573048139,  0.171324492379170] }
+};
+
+/* ---------- The current function f(xi) ---------- */
+const state = {
+  funcKey: 'poly',          // selector value
+  coeffs:  [1, 0.6, -0.4, 0.5, 0, 0],  // polynomial coeffs a0..a5
+  rule:    'gauss-2',
+  n:       2,                // slider value (N sub-intervals / n Gauss)
+  custom:  { xi:[-0.5, 0.5], W:[1, 1] },  // for custom mode
+  rain:    { on:false, drops:[], total:0, hits:0 }
+};
+
+function f(x) {
+  if (state.funcKey === 'poly') {
+    const c = state.coeffs;
+    let v = 0, xp = 1;
+    for (let i = 0; i < c.length; i++) { v += c[i]*xp; xp *= x; }
+    return v;
+  }
+  if (state.funcKey === 'poly3')
+    return 1 + x - 0.4*x*x + 0.6*x*x*x;
+  if (state.funcKey === 'poly5')
+    return 1 + 0.5*x - 0.3*x*x + 0.4*x*x*x - 0.2*Math.pow(x,4) + 0.5*Math.pow(x,5);
+  if (state.funcKey === 'sin')  return Math.sin(Math.PI*x) + 0.5;
+  if (state.funcKey === 'exp')  return 0.5*Math.exp(x);
+  if (state.funcKey === 'abs')  return Math.abs(x) + 0.2;
+  if (state.funcKey === 'runge')return 1/(1 + 16*x*x);
+  return 0;
+}
+
+/* ---------- High-accuracy "exact" reference using dense Gauss ---------- */
+function exactIntegral() {
+  // Composite Gauss-Legendre 6 on 32 subintervals -> ~machine precision
+  // for every function here except abs (non-smooth); for abs we use
+  // closed form below.
+  if (state.funcKey === 'abs') return 2*(0.5 + 0.2);  // int |x|+0.2 on [-1,1]
+  const gp = GL[6], M = 32;
+  const h = 2/M;
+  let s = 0;
+  for (let m = 0; m < M; m++) {
+    const a = -1 + m*h, b = a + h;
+    const mid = 0.5*(a+b), hh = 0.5*(b-a);
+    for (let i = 0; i < 6; i++)
+      s += hh*gp.W[i]*f(mid + hh*gp.xi[i]);
+  }
+  return s;
+}
+
+/* ---------- Build sample points {xi, W} for the current rule ---------- */
+function rulePoints() {
+  const r = state.rule, n = state.n;
+  if (r === 'mid-1') return { xi:[0], W:[2] };
+  if (r === 'mid-N') {
+    const N = Math.max(1, n), h = 2/N;
+    const xi = [], W = [];
+    for (let i = 0; i < N; i++) { xi.push(-1 + (i+0.5)*h); W.push(h); }
+    return { xi, W };
+  }
+  if (r === 'trap') {
+    const N = Math.max(1, n), h = 2/N;
+    const xi = [], W = [];
+    for (let i = 0; i <= N; i++) {
+      xi.push(-1 + i*h);
+      W.push(i === 0 || i === N ? h/2 : h);
+    }
+    return { xi, W };
+  }
+  if (r === 'simp') {
+    let N = Math.max(2, n);
+    if (N % 2) N += 1;  // must be even
+    const h = 2/N, xi = [], W = [];
+    for (let i = 0; i <= N; i++) {
+      xi.push(-1 + i*h);
+      if (i === 0 || i === N)      W.push(h/3);
+      else if (i % 2 === 1)        W.push(4*h/3);
+      else                         W.push(2*h/3);
+    }
+    return { xi, W };
+  }
+  if (r.startsWith('gauss-')) {
+    const k = parseInt(r.slice(6));
+    return { xi:GL[k].xi.slice(), W:GL[k].W.slice() };
+  }
+  if (r === 'custom') return state.custom;
+  return { xi:[], W:[] };
+}
+
+/* ---------- Rule exactness (degree) ---------- */
+function ruleExactDegree() {
+  const r = state.rule, n = state.n;
+  if (r === 'mid-1' || r === 'mid-N') return 1;
+  if (r === 'trap')                   return 1;
+  if (r === 'simp')                   return 3;
+  if (r.startsWith('gauss-'))         return 2*parseInt(r.slice(6)) - 1;
+  if (r === 'custom') {
+    // custom weights are fitted to match as many moments as possible,
+    // so degree is (points - 1) generically
+    return state.custom.xi.length - 1;
+  }
+  return 0;
+}
+
+/* ---------- For custom mode: fit weights to match moments ---------- */
+function fitCustomWeights() {
+  const xi = state.custom.xi;
+  const n = xi.length;
+  // Solve V^T W = m  where V_ki = xi_i^k, m_k = int_{-1}^1 xi^k dxi
+  // for k = 0..n-1 (n equations, n unknowns).
+  const A = []; const b = [];
+  for (let k = 0; k < n; k++) {
+    const row = [];
+    for (let i = 0; i < n; i++) row.push(Math.pow(xi[i], k));
+    A.push(row);
+    b.push(k % 2 === 0 ? 2/(k+1) : 0);
+  }
+  const W = gaussSolve(A, b);
+  state.custom.W = W;
+}
+
+function gaussSolve(A, b) {
+  const n = A.length;
+  const M = A.map((r,i) => r.concat([b[i]]));
+  for (let i = 0; i < n; i++) {
+    // partial pivot
+    let p = i;
+    for (let r = i+1; r < n; r++)
+      if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r;
+    if (p !== i) [M[i], M[p]] = [M[p], M[i]];
+    const pivot = M[i][i];
+    if (Math.abs(pivot) < 1e-14) return new Array(n).fill(0);
+    for (let r = i+1; r < n; r++) {
+      const factor = M[r][i] / pivot;
+      for (let c = i; c <= n; c++) M[r][c] -= factor*M[i][c];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n-1; i >= 0; i--) {
+    let s = M[i][n];
+    for (let j = i+1; j < n; j++) s -= M[i][j]*x[j];
+    x[i] = s / M[i][i];
+  }
+  return x;
+}
+
+/* ---------- Apply a {xi,W} rule to the current f ---------- */
+function applyRule(pts) {
+  let s = 0;
+  for (let i = 0; i < pts.xi.length; i++) s += pts.W[i]*f(pts.xi[i]);
+  return s;
+}
+
+/* ===================================================================
+ *  Main canvas: curve + samples + stems
+ * =================================================================== */
+const mainCvs = document.getElementById('mainCanvas');
+const mctx    = mainCvs.getContext('2d');
+const PAD = { L:45, R:25, T:20, B:45 };
+
+function yRange() {
+  // compute a good vertical range from samples of f
+  let ymin = Infinity, ymax = -Infinity;
+  for (let i = 0; i <= 200; i++) {
+    const x = -1 + 2*i/200, y = f(x);
+    if (y < ymin) ymin = y;
+    if (y > ymax) ymax = y;
+  }
+  const pad = 0.15*(ymax - ymin + 1e-9);
+  return [Math.min(0, ymin - pad), ymax + pad];
+}
+
+function drawMain() {
+  const W = mainCvs.width, H = mainCvs.height;
+  mctx.clearRect(0,0,W,H);
+  const [ymn, ymx] = yRange();
+  const xToPx = x => PAD.L + (x + 1)/2 * (W - PAD.L - PAD.R);
+  const yToPx = y => H - PAD.B - (y - ymn)/(ymx - ymn + 1e-12)
+                     * (H - PAD.T - PAD.B);
+
+  // grid
+  mctx.strokeStyle = '#eef1f6';
+  mctx.lineWidth = 1;
+  for (let gx = -1; gx <= 1; gx += 0.25) {
+    const px = xToPx(gx);
+    mctx.beginPath(); mctx.moveTo(px, PAD.T); mctx.lineTo(px, H-PAD.B);
+    mctx.stroke();
+  }
+  const step = (ymx-ymn)/5;
+  for (let gy = Math.ceil(ymn/step)*step; gy <= ymx; gy += step) {
+    const py = yToPx(gy);
+    mctx.beginPath(); mctx.moveTo(PAD.L, py); mctx.lineTo(W-PAD.R, py);
+    mctx.stroke();
+  }
+
+  // shaded exact integral region (under curve)
+  mctx.fillStyle = 'rgba(21,128,61,0.12)';
+  mctx.beginPath();
+  const samples = 240;
+  mctx.moveTo(xToPx(-1), yToPx(0));
+  for (let i = 0; i <= samples; i++) {
+    const x = -1 + 2*i/samples;
+    mctx.lineTo(xToPx(x), yToPx(f(x)));
+  }
+  mctx.lineTo(xToPx(1), yToPx(0));
+  mctx.closePath();
+  mctx.fill();
+
+  // axes
+  mctx.strokeStyle = '#334155'; mctx.lineWidth = 1.5;
+  mctx.beginPath();
+  mctx.moveTo(PAD.L, yToPx(0)); mctx.lineTo(W-PAD.R, yToPx(0));
+  mctx.moveTo(PAD.L, PAD.T);    mctx.lineTo(PAD.L, H-PAD.B);
+  mctx.stroke();
+  mctx.fillStyle = '#334155';
+  mctx.font = '12px Segoe UI';
+  mctx.textAlign = 'center';
+  for (let gx of [-1, -0.5, 0, 0.5, 1])
+    mctx.fillText(gx.toFixed(1), xToPx(gx), H-PAD.B+16);
+  mctx.textAlign = 'right';
+  for (let k = 0; k < 6; k++) {
+    const gy = ymn + k*(ymx-ymn)/5;
+    mctx.fillText(gy.toFixed(2), PAD.L-6, yToPx(gy)+4);
+  }
+  mctx.textAlign = 'left';
+  mctx.fillText('ξ', W-PAD.R-8, yToPx(0)-6);
+  mctx.fillText('f(ξ)', PAD.L+6, PAD.T+6);
+
+  // approximation visualization:
+  const pts = rulePoints();
+  const r = state.rule;
+  if (r === 'mid-N') {
+    // draw rectangles of width h, height f(midpoint)
+    mctx.fillStyle = 'rgba(251,191,36,0.28)';
+    mctx.strokeStyle = '#f59e0b'; mctx.lineWidth = 1;
+    for (let i = 0; i < pts.xi.length; i++) {
+      const xi = pts.xi[i], h = pts.W[i];
+      const a = xi - h/2, b = xi + h/2, y = f(xi);
+      mctx.beginPath();
+      mctx.rect(xToPx(a), yToPx(Math.max(0,y)),
+                xToPx(b)-xToPx(a), Math.abs(yToPx(y)-yToPx(0)));
+      mctx.fill(); mctx.stroke();
+    }
+  } else if (r === 'trap') {
+    mctx.fillStyle = 'rgba(251,191,36,0.28)';
+    mctx.strokeStyle = '#f59e0b'; mctx.lineWidth = 1;
+    for (let i = 0; i < pts.xi.length-1; i++) {
+      const xa = pts.xi[i], xb = pts.xi[i+1];
+      const ya = f(xa), yb = f(xb);
+      mctx.beginPath();
+      mctx.moveTo(xToPx(xa), yToPx(0));
+      mctx.lineTo(xToPx(xa), yToPx(ya));
+      mctx.lineTo(xToPx(xb), yToPx(yb));
+      mctx.lineTo(xToPx(xb), yToPx(0));
+      mctx.closePath();
+      mctx.fill(); mctx.stroke();
+    }
+  } else if (r === 'simp') {
+    // draw parabolic arcs over each pair of subintervals
+    mctx.fillStyle = 'rgba(251,191,36,0.20)';
+    mctx.strokeStyle = '#f59e0b'; mctx.lineWidth = 1.2;
+    for (let i = 0; i < pts.xi.length-1; i += 2) {
+      const xa = pts.xi[i], xm = pts.xi[i+1], xb = pts.xi[i+2];
+      const ya = f(xa), ym = f(xm), yb = f(xb);
+      // Lagrange parabola on (xa,ya),(xm,ym),(xb,yb)
+      const samp = 24;
+      mctx.beginPath();
+      mctx.moveTo(xToPx(xa), yToPx(0));
+      for (let k = 0; k <= samp; k++) {
+        const t = xa + k*(xb-xa)/samp;
+        const L0 = (t-xm)*(t-xb) / ((xa-xm)*(xa-xb));
+        const L1 = (t-xa)*(t-xb) / ((xm-xa)*(xm-xb));
+        const L2 = (t-xa)*(t-xm) / ((xb-xa)*(xb-xm));
+        const y = ya*L0 + ym*L1 + yb*L2;
+        mctx.lineTo(xToPx(t), yToPx(y));
+      }
+      mctx.lineTo(xToPx(xb), yToPx(0));
+      mctx.closePath();
+      mctx.fill(); mctx.stroke();
+    }
+  } else {
+    // Gauss / custom / single-mid: draw weight stems
+    for (let i = 0; i < pts.xi.length; i++) {
+      const xi = pts.xi[i], wi = pts.W[i], y = f(xi);
+      mctx.strokeStyle = '#fbbf24';
+      mctx.lineWidth = 3 + 6*Math.abs(wi);  // fatter = bigger weight
+      mctx.beginPath();
+      mctx.moveTo(xToPx(xi), yToPx(0));
+      mctx.lineTo(xToPx(xi), yToPx(y));
+      mctx.stroke();
+    }
+  }
+
+  // function curve on top
+  mctx.strokeStyle = '#2563eb'; mctx.lineWidth = 2.5;
+  mctx.beginPath();
+  for (let i = 0; i <= samples; i++) {
+    const x = -1 + 2*i/samples, y = f(x);
+    const px = xToPx(x), py = yToPx(y);
+    if (i === 0) mctx.moveTo(px, py);
+    else         mctx.lineTo(px, py);
+  }
+  mctx.stroke();
+
+  // sample dots
+  for (let i = 0; i < pts.xi.length; i++) {
+    const xi = pts.xi[i], y = f(xi);
+    mctx.fillStyle = '#dc2626';
+    mctx.beginPath();
+    mctx.arc(xToPx(xi), yToPx(y), 5, 0, 2*Math.PI);
+    mctx.fill();
+    mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.5; mctx.stroke();
+    // dot on axis too (for custom drag affordance)
+    mctx.fillStyle = '#dc2626';
+    mctx.beginPath();
+    mctx.arc(xToPx(xi), yToPx(0), 4, 0, 2*Math.PI);
+    mctx.fill();
+  }
+
+  // cache mapping for drag
+  drawMain.xToPx = xToPx; drawMain.yToPx = yToPx;
+  drawMain.yrng = [ymn, ymx];
+}
+
+/* ---------- drag handlers for custom mode ---------- */
+let dragIx = -1;
+mainCvs.addEventListener('mousedown', ev => {
+  if (state.rule !== 'custom') return;
+  const rect = mainCvs.getBoundingClientRect();
+  const px = ev.clientX - rect.left, py = ev.clientY - rect.top;
+  const xToPx = drawMain.xToPx, yToPx = drawMain.yToPx;
+  let best = -1, bestD = 14;
+  const pts = state.custom;
+  for (let i = 0; i < pts.xi.length; i++) {
+    const dy = py - yToPx(0), dx = px - xToPx(pts.xi[i]);
+    const d = Math.hypot(dx, dy);
+    if (d < bestD) { best = i; bestD = d; }
+    const dy2 = py - yToPx(f(pts.xi[i])), dx2 = px - xToPx(pts.xi[i]);
+    const d2 = Math.hypot(dx2, dy2);
+    if (d2 < bestD) { best = i; bestD = d2; }
+  }
+  dragIx = best;
+});
+window.addEventListener('mousemove', ev => {
+  if (dragIx < 0 || state.rule !== 'custom') return;
+  const rect = mainCvs.getBoundingClientRect();
+  const px = ev.clientX - rect.left;
+  // invert xToPx
+  const xToPx = drawMain.xToPx;
+  const W = mainCvs.width;
+  let xi = (px - PAD.L)/(W - PAD.L - PAD.R) * 2 - 1;
+  xi = Math.max(-0.999, Math.min(0.999, xi));
+  // keep ordered, no collisions
+  const others = state.custom.xi.filter((_,i)=>i!==dragIx);
+  for (const o of others) if (Math.abs(xi-o) < 0.02) xi = o + 0.02*Math.sign(xi-o || 1);
+  state.custom.xi[dragIx] = xi;
+  // re-sort
+  const pairs = state.custom.xi.map((x,i)=>({x,orig:i})).sort((a,b)=>a.x-b.x);
+  state.custom.xi = pairs.map(p=>p.x);
+  dragIx = pairs.findIndex(p=>p.orig===dragIx);
+  fitCustomWeights();
+  refresh();
+});
+window.addEventListener('mouseup', ()=>{ dragIx = -1; });
+
+/* ===================================================================
+ *  Moment gauges
+ * =================================================================== */
+function drawGauges() {
+  const pts = rulePoints();
+  const n = pts.xi.length;
+  const K = Math.max(2*n, 4);   // show a few past the exactness bound too
+  const host = document.getElementById('gaugeBox');
+  host.innerHTML = '';
+  for (let k = 0; k < K; k++) {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += pts.W[i]*Math.pow(pts.xi[i], k);
+    const truth = k % 2 === 0 ? 2/(k+1) : 0;
+    const diff = sum - truth;
+    const rel = Math.abs(diff)/(Math.abs(truth) + 1e-6);
+    // map diff to bar width via tanh for visual saturation
+    const w = Math.min(50, Math.abs(diff)*120 + 5*Math.abs(diff)/(Math.abs(truth)+0.1));
+    const ok = Math.abs(diff) < 1e-6;
+    const el = document.createElement('div');
+    el.className = 'gauge';
+    el.innerHTML = `
+      <div class="k">k = ${k} ${k < 2*n ? '<span style="color:#2563eb">&#9734;</span>' : ''}</div>
+      <div>&Sigma; W&#8202;&xi;<sup>${k}</sup> = ${sum.toFixed(4)}</div>
+      <div style="color:#94a3b8">truth = ${truth.toFixed(4)}</div>
+      <div class="bar"><div class="fill ${ok?'ok':'bad'}"
+          style="width:${w}%; ${diff<0?'right:50%; left:auto;':''}"></div></div>`;
+    host.appendChild(el);
+  }
+}
+
+/* ===================================================================
+ *  Physics optimizer: damped Newton dynamics on moment residual L.
+ *  Variables: xi_i and W_i  (custom mode only). Targets L = 0.
+ *  L = sum_{k=0}^{2n-1} (sum_i W_i xi_i^k - m_k)^2
+ * =================================================================== */
+let optimizing = false;
+function optimizeStep(dt) {
+  const n = state.custom.xi.length;
+  const K = 2*n;
+  const xi = state.custom.xi, W = state.custom.W;
+  // compute residuals
+  const r = [];
+  for (let k = 0; k < K; k++) {
+    let s = 0;
+    for (let i = 0; i < n; i++) s += W[i]*Math.pow(xi[i], k);
+    r.push(s - (k%2===0 ? 2/(k+1) : 0));
+  }
+  // gradient
+  const gxi = new Array(n).fill(0), gW = new Array(n).fill(0);
+  for (let k = 0; k < K; k++) {
+    for (let i = 0; i < n; i++) {
+      gW[i]  += 2*r[k]*Math.pow(xi[i], k);
+      if (k > 0)
+        gxi[i] += 2*r[k]*W[i]*k*Math.pow(xi[i], k-1);
+    }
+  }
+  // damped dynamics: q_new = q - eta*g (simple gradient flow;
+  // we display it as "springs" in the UI)
+  const eta = 0.02;
+  for (let i = 0; i < n; i++) {
+    xi[i] -= eta*gxi[i];
+    W[i]  -= eta*gW[i];
+    // clamp to interval
+    if (xi[i] < -0.999) xi[i] = -0.999;
+    if (xi[i] >  0.999) xi[i] =  0.999;
+  }
+  // re-sort to keep left-to-right ordering
+  const pairs = xi.map((x,i)=>({x, w:W[i]})).sort((a,b)=>a.x-b.x);
+  state.custom.xi = pairs.map(p=>p.x);
+  state.custom.W  = pairs.map(p=>p.w);
+  // stopping criterion
+  const L = r.reduce((a,b)=>a+b*b, 0);
+  return L;
+}
+
+function startOptimize() {
+  if (state.rule !== 'custom') {
+    // temporarily clone current rule points into custom
+    const pts = rulePoints();
+    state.custom.xi = pts.xi.slice();
+    state.custom.W  = pts.W.slice();
+    document.getElementById('ruleSel').value = 'custom';
+    state.rule = 'custom';
+  }
+  optimizing = true;
+  let iter = 0;
+  const step = () => {
+    if (!optimizing) return;
+    let Lfinal = 0;
+    for (let s = 0; s < 6; s++) Lfinal = optimizeStep(0.016);
+    refresh();
+    iter++;
+    if (Lfinal < 1e-14 || iter > 400) optimizing = false;
+    if (optimizing) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* ===================================================================
+ *  Monte-Carlo rain
+ * =================================================================== */
+const rainCvs = document.getElementById('rainCanvas');
+const rctx = rainCvs.getContext('2d');
+let rainRAF = null;
+
+function rainBox() {
+  const [ymn, ymx] = yRange();
+  // force the MC box to sit on y = 0 so "hits = under curve" is clean
+  // for non-negative functions; otherwise use the full yrange.
+  const yLo = Math.min(0, ymn), yHi = ymx + 0.02*(ymx - ymn);
+  return { yLo, yHi };
+}
+
+function resetRain() {
+  state.rain.drops = [];
+  state.rain.total = 0;
+  state.rain.hits  = 0;
+  drawRain();
+  updateRainReadout();
+}
+
+function drawRain() {
+  const W = rainCvs.width, H = rainCvs.height;
+  const { yLo, yHi } = rainBox();
+  rctx.clearRect(0,0,W,H);
+  const xToPx = x => PAD.L + (x + 1)/2 * (W - PAD.L - PAD.R);
+  const yToPx = y => H - PAD.B - (y - yLo)/(yHi - yLo + 1e-12)
+                     * (H - PAD.T - PAD.B);
+
+  // bounding box
+  rctx.strokeStyle = '#94a3b8';
+  rctx.strokeRect(xToPx(-1), yToPx(yHi),
+                  xToPx(1)-xToPx(-1), yToPx(yLo)-yToPx(yHi));
+
+  // shaded true area (for the visual reference)
+  rctx.fillStyle = 'rgba(21,128,61,0.10)';
+  rctx.beginPath();
+  rctx.moveTo(xToPx(-1), yToPx(0));
+  const N = 200;
+  for (let i = 0; i <= N; i++) {
+    const x = -1 + 2*i/N;
+    rctx.lineTo(xToPx(x), yToPx(Math.max(0, f(x))));
+  }
+  rctx.lineTo(xToPx(1), yToPx(0));
+  rctx.closePath();
+  rctx.fill();
+
+  // curve
+  rctx.strokeStyle = '#2563eb'; rctx.lineWidth = 2;
+  rctx.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const x = -1 + 2*i/N, y = f(x);
+    const px = xToPx(x), py = yToPx(y);
+    if (i === 0) rctx.moveTo(px, py); else rctx.lineTo(px, py);
+  }
+  rctx.stroke();
+
+  // drops
+  for (const d of state.rain.drops) {
+    rctx.fillStyle = d.hit ? '#22c55e' : (d.settled ? '#cbd5e1' : '#3b82f6');
+    rctx.beginPath();
+    rctx.arc(xToPx(d.x), yToPx(d.y), d.settled?1.5:2, 0, 2*Math.PI);
+    rctx.fill();
+  }
+
+  // axis labels
+  rctx.fillStyle = '#334155';
+  rctx.font = '11px Segoe UI';
+  rctx.textAlign = 'center';
+  for (let gx of [-1, 0, 1])
+    rctx.fillText(gx.toFixed(0), xToPx(gx), H-PAD.B+14);
+}
+
+function stepRain() {
+  const { yLo, yHi } = rainBox();
+  const dt = 0.02, g = 6;
+  // spawn new drops
+  for (let s = 0; s < 4; s++) {
+    const x = -1 + 2*Math.random();
+    state.rain.drops.push({ x, y: yHi, vy: 0, hit:false, settled:false });
+    state.rain.total++;
+  }
+  // integrate
+  for (const d of state.rain.drops) {
+    if (d.settled) continue;
+    d.vy -= g*dt;
+    d.y  += d.vy*dt;
+    if (d.y <= f(d.x)) {
+      d.hit = true; d.settled = true;
+      state.rain.hits++;
+    } else if (d.y <= yLo) {
+      d.settled = true;
+    }
+  }
+  // cap array length for performance
+  if (state.rain.drops.length > 5000) {
+    // keep only settled ones + recent active
+    state.rain.drops = state.rain.drops.filter(d => d.settled)
+                      .slice(-4000)
+                      .concat(state.rain.drops.filter(d => !d.settled));
+  }
+}
+
+function updateRainReadout() {
+  document.getElementById('rainTotal').textContent = state.rain.total;
+  document.getElementById('rainHits').textContent  = state.rain.hits;
+  const { yLo, yHi } = rainBox();
+  const boxArea = 2*(yHi - yLo);
+  const est = boxArea * state.rain.hits / Math.max(1, state.rain.total);
+  const ex  = exactIntegral();
+  document.getElementById('rainEst').textContent =
+      state.rain.total ? est.toFixed(4) : '—';
+  document.getElementById('rainExact').textContent = ex.toFixed(4);
+  document.getElementById('rainErr').textContent =
+      state.rain.total ? Math.abs(est - ex).toExponential(2) : '—';
+  // Gauss n=2 for comparison
+  const g = GL[2];
+  const gEst = g.W[0]*f(g.xi[0]) + g.W[1]*f(g.xi[1]);
+  document.getElementById('rainGauss').textContent =
+      Math.abs(gEst - ex).toExponential(2);
+}
+
+function rainLoop() {
+  if (!state.rain.on) return;
+  stepRain();
+  drawRain();
+  updateRainReadout();
+  rainRAF = requestAnimationFrame(rainLoop);
+}
+
+/* ===================================================================
+ *  Convergence plot
+ * =================================================================== */
+const convCvs = document.getElementById('convCanvas');
+const cctx = convCvs.getContext('2d');
+
+function drawConvergence() {
+  const W = convCvs.width, H = convCvs.height;
+  cctx.clearRect(0,0,W,H);
+  const pad = { L:50, R:20, T:10, B:36 };
+  const logN = [1,2,3,4,5,6,7,8,9,10,12,16,20,24,32,48,64,96];
+  const ex = exactIntegral();
+  const series = { gauss:[], simp:[], mid:[] };
+  for (const N of logN) {
+    // Gauss-Legendre at n=min(N,6) + composite if beyond
+    let ge;
+    if (N <= 6) {
+      const g = GL[N];
+      let s = 0;
+      for (let i = 0; i < N; i++) s += g.W[i]*f(g.xi[i]);
+      ge = s;
+    } else {
+      // composite Gauss-6 on ceil(N/6) subintervals
+      const M = Math.ceil(N/6), h = 2/M, g = GL[6];
+      let s = 0;
+      for (let m = 0; m < M; m++) {
+        const a = -1 + m*h, mid = a + h/2, hh = h/2;
+        for (let i = 0; i < 6; i++) s += hh*g.W[i]*f(mid + hh*g.xi[i]);
+      }
+      ge = s;
+    }
+    series.gauss.push([N, Math.max(1e-17, Math.abs(ge - ex))]);
+
+    // Simpson composite with N even; skip N=1
+    if (N >= 2) {
+      const M = (N % 2 === 0) ? N : N+1;
+      const h = 2/M;
+      let s = f(-1) + f(1);
+      for (let i = 1; i < M; i++) {
+        const x = -1 + i*h;
+        s += (i%2===1 ? 4 : 2)*f(x);
+      }
+      series.simp.push([M, Math.max(1e-17, Math.abs(h/3*s - ex))]);
+    }
+
+    // Midpoint composite
+    const hm = 2/N;
+    let sm = 0;
+    for (let i = 0; i < N; i++) sm += f(-1 + (i+0.5)*hm);
+    series.mid.push([N, Math.max(1e-17, Math.abs(hm*sm - ex))]);
+  }
+
+  const allN = logN;
+  const xMin = Math.log10(1), xMax = Math.log10(100);
+  const yMin = -17, yMax = 2;
+  const xToPx = x => pad.L + (Math.log10(x) - xMin)/(xMax - xMin)*(W - pad.L - pad.R);
+  const yToPx = y => H - pad.B - (Math.log10(y) - yMin)/(yMax - yMin)*(H - pad.T - pad.B);
+
+  // grid
+  cctx.strokeStyle = '#eef1f6'; cctx.lineWidth = 1;
+  for (let gx = 0; gx <= 2; gx++) {
+    for (let m = 1; m <= 9; m++) {
+      const v = m*Math.pow(10, gx);
+      const px = xToPx(v);
+      cctx.beginPath(); cctx.moveTo(px, pad.T); cctx.lineTo(px, H-pad.B);
+      cctx.stroke();
+    }
+  }
+  for (let ly = yMin; ly <= yMax; ly += 2) {
+    const py = yToPx(Math.pow(10, ly));
+    cctx.beginPath(); cctx.moveTo(pad.L, py); cctx.lineTo(W-pad.R, py);
+    cctx.stroke();
+  }
+  // axes
+  cctx.strokeStyle = '#334155'; cctx.lineWidth = 1.2;
+  cctx.strokeRect(pad.L, pad.T, W-pad.L-pad.R, H-pad.T-pad.B);
+  cctx.fillStyle = '#334155'; cctx.font = '11px Segoe UI';
+  cctx.textAlign = 'center';
+  for (const v of [1,3,10,30,100])
+    cctx.fillText(v.toString(), xToPx(v), H-pad.B+14);
+  cctx.textAlign = 'right';
+  for (let ly = yMin; ly <= yMax; ly += 2)
+    cctx.fillText('1e'+ly, pad.L-5, yToPx(Math.pow(10,ly))+3);
+  cctx.textAlign = 'center';
+  cctx.fillText('N (number of function evaluations)', W/2, H-6);
+  cctx.save();
+  cctx.translate(12, H/2);
+  cctx.rotate(-Math.PI/2);
+  cctx.fillText('|error|', 0, 0);
+  cctx.restore();
+
+  const plot = (pts, color) => {
+    cctx.strokeStyle = color; cctx.lineWidth = 2;
+    cctx.beginPath();
+    pts.forEach(([x,y], i) => {
+      const px = xToPx(x), py = yToPx(y);
+      if (i === 0) cctx.moveTo(px, py); else cctx.lineTo(px, py);
+    });
+    cctx.stroke();
+    cctx.fillStyle = color;
+    pts.forEach(([x,y]) => {
+      cctx.beginPath();
+      cctx.arc(xToPx(x), yToPx(y), 3, 0, 2*Math.PI);
+      cctx.fill();
+    });
+  };
+  plot(series.mid,   '#f59e0b');
+  plot(series.simp,  '#dc2626');
+  plot(series.gauss, '#2563eb');
+}
+
+/* ===================================================================
+ *  Wire up: refresh the whole page after any input change
+ * =================================================================== */
+function refresh() {
+  if (state.rule === 'custom' && !optimizing) fitCustomWeights();
+  drawMain();
+  drawGauges();
+  drawConvergence();
+  // readouts
+  const pts = rulePoints();
+  const est = applyRule(pts);
+  const ex  = exactIntegral();
+  document.getElementById('estOut').textContent   = est.toFixed(6);
+  document.getElementById('exactOut').textContent = ex.toFixed(6);
+  const err = est - ex;
+  const relp = Math.abs(err)/(Math.abs(ex)+1e-12)*100;
+  const eOut = document.getElementById('errOut');
+  eOut.textContent = err.toExponential(3);
+  eOut.className = Math.abs(err) < 1e-10 ? 'err-zero'
+                   : (err > 0 ? 'err-pos' : 'err-neg');
+  document.getElementById('relOut').textContent = relp.toFixed(4) + '%';
+  const polyDeg = state.funcKey === 'poly' ?
+        state.coeffs.reduce((d,c,i) => Math.abs(c) > 1e-10 ? i : d, 0)
+      : (state.funcKey === 'poly3' ? 3
+      : state.funcKey === 'poly5' ? 5
+      : '∞ (non-polynomial)');
+  document.getElementById('polyDegOut').textContent = polyDeg;
+  document.getElementById('exactDegOut').textContent = ruleExactDegree();
+}
+
+/* ---------- UI wiring ---------- */
+document.getElementById('funcPreset').addEventListener('change', ev => {
+  state.funcKey = ev.target.value;
+  document.getElementById('polySliders').style.display =
+      state.funcKey === 'poly' ? '' : 'none';
+  resetRain();
+  refresh();
+});
+['a0','a1','a2','a3','a4','a5'].forEach((id, i) => {
+  document.getElementById(id).addEventListener('input', ev => {
+    state.coeffs[i] = parseFloat(ev.target.value);
+    document.getElementById(id+'v').textContent =
+        state.coeffs[i].toFixed(2);
+    if (state.funcKey === 'poly') { resetRain(); refresh(); }
+  });
+});
+document.getElementById('ruleSel').addEventListener('change', ev => {
+  state.rule = ev.target.value;
+  const noteEl = document.getElementById('ruleNote');
+  if (state.rule === 'custom') {
+    noteEl.innerHTML = 'Drag the red dots. Weights are auto-fitted to match the first <i>n</i> moments.';
+  } else if (state.rule.startsWith('gauss-')) {
+    const n = parseInt(state.rule.slice(6));
+    noteEl.innerHTML = `Gauss&ndash;Legendre n=${n}: exact for polynomials of degree &le; ${2*n-1}.`;
+  } else if (state.rule === 'simp') {
+    noteEl.innerHTML = 'Composite Simpson: exact for cubics on each pair of sub-intervals.';
+  } else if (state.rule === 'trap') {
+    noteEl.innerHTML = 'Composite trapezoid: exact for linears on each sub-interval.';
+  } else {
+    noteEl.innerHTML = 'Midpoint rule: evaluate f at the centre of each sub-interval.';
+  }
+  refresh();
+});
+document.getElementById('nSlider').addEventListener('input', ev => {
+  state.n = parseInt(ev.target.value);
+  document.getElementById('nSliderVal').textContent = state.n;
+  // if Gauss is selected, also update the dropdown to match
+  if (state.rule.startsWith('gauss-') && state.n >= 1 && state.n <= 6) {
+    state.rule = 'gauss-' + state.n;
+    document.getElementById('ruleSel').value = state.rule;
+  }
+  refresh();
+});
+document.getElementById('optimizeBtn').addEventListener('click', startOptimize);
+document.getElementById('resetCustomBtn').addEventListener('click', () => {
+  const n = Math.max(1, Math.min(6, state.n));
+  const xi = [];
+  for (let i = 0; i < n; i++)
+    xi.push(-0.9 + 1.8*(i+0.5)/n);
+  state.custom.xi = xi;
+  fitCustomWeights();
+  document.getElementById('ruleSel').value = 'custom';
+  state.rule = 'custom';
+  refresh();
+});
+document.getElementById('rainToggleBtn').addEventListener('click', () => {
+  state.rain.on = !state.rain.on;
+  document.getElementById('rainToggleBtn').textContent =
+      state.rain.on ? 'Pause rain' : 'Start rain';
+  if (state.rain.on) rainLoop();
+  else if (rainRAF) cancelAnimationFrame(rainRAF);
+});
+document.getElementById('rainClearBtn').addEventListener('click', resetRain);
+
+/* initial state */
+fitCustomWeights();
+resetRain();
+refresh();
+</script>
+
+</body>
+</html>
