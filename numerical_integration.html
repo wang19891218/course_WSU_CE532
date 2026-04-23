@@ -1046,6 +1046,78 @@ function drawConvergence() {
   plot(series.mid,   '#f59e0b');
   plot(series.simp,  '#dc2626');
   plot(series.gauss, '#2563eb');
+
+  /* ---- highlight the currently selected rule on its curve ---- */
+  const rule = state.rule;
+  let markN = null, markSeries = null, markColor = '#111';
+  if (rule.startsWith('gauss-')) {
+    markN = parseInt(rule.split('-')[1], 10);
+    markSeries = 'gauss';
+    markColor = '#2563eb';
+  } else if (rule === 'mid-1') {
+    markN = 1;
+    markSeries = 'mid';
+    markColor = '#f59e0b';
+  } else if (rule === 'mid-N') {
+    markN = state.n;
+    markSeries = 'mid';
+    markColor = '#f59e0b';
+  } else if (rule === 'simp') {
+    markN = (state.n % 2 === 0) ? state.n : state.n + 1;
+    markSeries = 'simp';
+    markColor = '#dc2626';
+  }
+
+  if (markN !== null && markN >= 1 && markN <= 100) {
+    let est;
+    if (markSeries === 'gauss') {
+      if (markN <= 6) {
+        const g = GL[markN];
+        let s = 0;
+        for (let i = 0; i < markN; i++) s += g.W[i]*f(g.xi[i]);
+        est = s;
+      } else {
+        const M = Math.ceil(markN/6), h = 2/M, g = GL[6];
+        let s = 0;
+        for (let m = 0; m < M; m++) {
+          const a = -1 + m*h, mid = a + h/2, hh = h/2;
+          for (let i = 0; i < 6; i++) s += hh*g.W[i]*f(mid + hh*g.xi[i]);
+        }
+        est = s;
+      }
+    } else if (markSeries === 'mid') {
+      const hm = 2/markN;
+      let sm = 0;
+      for (let i = 0; i < markN; i++) sm += f(-1 + (i+0.5)*hm);
+      est = hm*sm;
+    } else { /* simp */
+      const M = markN, h = 2/M;
+      let s = f(-1) + f(1);
+      for (let i = 1; i < M; i++) {
+        const x = -1 + i*h;
+        s += (i%2===1 ? 4 : 2)*f(x);
+      }
+      est = h/3*s;
+    }
+    const markErr = Math.max(1e-17, Math.abs(est - ex));
+    const px = xToPx(markN), py = yToPx(markErr);
+    cctx.fillStyle = markColor;
+    cctx.beginPath();
+    cctx.arc(px, py, 5, 0, 2*Math.PI);
+    cctx.fill();
+    cctx.strokeStyle = '#111';
+    cctx.lineWidth = 2.5;
+    cctx.beginPath();
+    cctx.arc(px, py, 9, 0, 2*Math.PI);
+    cctx.stroke();
+    cctx.fillStyle = '#111';
+    cctx.font = 'bold 12px Segoe UI';
+    cctx.textAlign = 'left';
+    const labelTxt = `current: ${markSeries}, N=${markN}`;
+    const lx = Math.min(px + 14, W - pad.R - 150);
+    const ly = py - 10;
+    cctx.fillText(labelTxt, lx, ly);
+  }
 }
 
 /* ===================================================================
